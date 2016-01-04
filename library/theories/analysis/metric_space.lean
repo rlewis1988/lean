@@ -184,6 +184,34 @@ definition converges_to_at (f : M → N) (y : N) (x : M) :=
 
 notation f `⟶` y `at` x := converges_to_at f y x
 
+theorem converges_to_at_constant (n : N) (x : M) : (λ y : M, n) ⟶ n at x :=
+  begin
+    rewrite ↑converges_to_at,
+    intros ε Hε,
+    existsi 1,
+    split,
+    exact zero_lt_one,
+    intros,
+    rewrite dist_self,
+    assumption
+  end
+
+theorem converges_to_at_eq_of_eq_except_at_point (f g : M → N) (y : N) (x : M) (Hf : f ⟶ y at x)
+        (Hfg : ∀ x' : M, x ≠ x' → f x' = g x') : g ⟶ y at x :=
+  begin
+    rewrite ↑converges_to_at at *,
+    intros ε Hε,
+    cases Hf Hε with δ Hδ,
+    cases Hδ with δpos Hδ,
+    existsi δ,
+    split,
+    assumption,
+    intros x' Hx',
+    rewrite [-Hfg _ (and.left Hx')],
+    apply Hδ,
+    assumption
+  end
+
 definition converges_at [class] (f : M → N) (x : M) :=
 ∃ y, converges_to_at f y x
 

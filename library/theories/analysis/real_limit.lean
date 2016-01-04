@@ -847,4 +847,208 @@ eq_of_forall_dist_le
 
 -/
 
+-- theorems about converges_to_at
+section function_convergence
+
+theorem min_pos_of_pos_of_pos (a b : ℝ) (Ha : a > 0) (Hb : b > 0) : min a b > 0 :=
+  if Hab : a ≤ b then
+    begin rewrite [↑min, if_pos Hab], exact Ha end
+  else
+    begin rewrite [↑min, if_neg Hab], exact Hb end
+
+open metric_space
+
+theorem dist_is_abs (x y : ℝ) : dist x y = abs (x - y) := rfl
+
+theorem lim_const (c : ℝ) : (λ h : ℝ, c) ⟶ c at 0 :=
+  begin
+    rewrite ↑converges_to_at,
+    intros ε Hε,
+    existsi 1,
+    split,
+    exact zero_lt_one,
+    intros x' Hx',
+    rewrite metric_space.dist_self,
+    assumption
+  end
+
+theorem add_converges_to_at (f g : ℝ → ℝ) (lf lg x : ℝ) (Hf : f ⟶ lf at x) (Hg : g ⟶ lg at x) :
+        (λ y, f y + g y) ⟶ (lf + lg) at x :=
+  begin
+    rewrite [↑converges_to_at at *],
+    intros ε Hε,
+    have Hε' : ε / 2 > 0, from div_pos_of_pos_of_pos Hε two_pos,
+    cases Hf Hε' with δ1 Hδ1,
+    cases Hg Hε' with δ2 Hδ2,
+    existsi min δ1 δ2,
+    split,
+    apply min_pos_of_pos_of_pos,
+    exact (and.left Hδ1),
+    exact (and.left Hδ2),
+    intro x' Hx',
+    cases Hx' with Hx1 Hx2,
+    rewrite [dist_is_abs, add_sub_comm, -add_halves ε],
+    apply lt_of_le_of_lt,
+    apply abs_add_le_abs_add_abs,
+    apply add_lt_add,
+    apply (and.right Hδ1),
+    split,
+    assumption,
+    apply lt_of_lt_of_le,
+    exact Hx2,
+    apply min_le_left,
+    apply (and.right Hδ2),
+    split,
+    assumption,
+    apply lt_of_lt_of_le,
+    exact Hx2,
+    apply min_le_right
+  end
+
+theorem neg_converges_to_at (f : ℝ → ℝ) (lf x : ℝ) (Hf : f ⟶ lf at x) :
+        (λ y, - f y) ⟶ -lf at x :=
+  begin
+    rewrite ↑converges_to_at at *,
+    intros ε Hε,
+    cases Hf Hε with δ Hδ,
+    cases Hδ with Hpos Hδ,
+    existsi δ,
+    split,
+    assumption,
+    intros x' Hx',
+    rewrite [dist_is_abs, -abs_neg, sub_neg_eq_add, neg_add, neg_neg],
+    apply Hδ,
+    assumption
+  end
+
+theorem sub_converges_to_at (f g : ℝ → ℝ) (lf lg x : ℝ) (Hf : f ⟶ lf at x) (Hg : g ⟶ lg at x) :
+        (λ y, f y - g y) ⟶ (lf - lg) at x :=
+  begin
+    have H : (λ y, f y - g y) = (λ y, f y + -g y), from funext (λ y, !sub_eq_add_neg),
+    rewrite [H, sub_eq_add_neg],
+    apply add_converges_to_at,
+    assumption,
+    apply neg_converges_to_at,
+    assumption
+  end
+
+theorem add_sub_assoc (a b c : ℝ) : a + b - c = a + (b - c) :=
+  by rewrite [sub_eq_add_neg, add.assoc, -sub_eq_add_neg]
+
+theorem mul_converges_to_at (f g : ℝ → ℝ) (lf lg x : ℝ) (Hf : converges_to_at f lf x)
+        (Hg : converges_to_at g lg x) : converges_to_at (λ y, f y * g y) (lf * lg) x :=
+  begin
+    intros ε Hε,
+    have Hnelg : 1 + abs lg > 0, from add_pos_of_pos_of_nonneg zero_lt_one !abs_nonneg,
+    have Hnelf : 1 + abs lf > 0, from add_pos_of_pos_of_nonneg zero_lt_one !abs_nonneg,
+    have Hεlg : ε / (2 * (1 + abs lg)) > 0, from div_pos_of_pos_of_pos Hε (mul_pos two_pos Hnelg),
+    have Hεlf : ε / (2 * (1 + abs lf)) > 0, from div_pos_of_pos_of_pos Hε (mul_pos two_pos Hnelf),
+    cases Hf Hεlg with δ1 Hδ1,
+    cases Hδ1 with δ1p Hδ1,
+    cases Hg Hεlf with δ2 Hδ2,
+    cases Hδ2 with δ2p Hδ2,
+    cases Hg zero_lt_one with δ3 Hδ3,
+    cases Hδ3 with δ3p Hδ3,
+    existsi min δ1 (min δ2 δ3),
+    split,
+    repeat (apply min_pos_of_pos_of_pos; repeat assumption),
+    intros x' Hx',
+    cases Hx' with Hne Hxx',
+    have Hxx'1 : dist x x' < δ1, from lt_of_lt_of_le Hxx' !min_le_left,
+    have Hxx'2 : dist x x' < δ2, from lt_of_lt_of_le Hxx' (le.trans !min_le_right !min_le_left),
+    have Hxx'3 : dist x x' < δ3, from lt_of_lt_of_le Hxx' (le.trans !min_le_right !min_le_right),
+    have Habsg : abs (g x') < 1 + abs lg, begin
+      rewrite [-sub_add_cancel (g x') lg],
+      apply lt_of_le_of_lt,
+      apply abs_add_le_abs_add_abs,
+      apply add_lt_add_right,
+      apply Hδ3,
+      split,
+      repeat assumption
+    end,
+    have Habsf : abs lf < 1 + abs lf, from lt_add_of_pos_left zero_lt_one,
+    rewrite [dist_is_abs, -sub_add_cancel (f x' * g x') (lf * g x'), add_sub_assoc],
+    apply lt_of_le_of_lt,
+    apply abs_add_le_abs_add_abs,
+    rewrite [-mul_sub_right_distrib, -mul_sub_left_distrib, 2 abs_mul, -add_halves ε],
+    apply lt_of_lt_of_le,
+    apply add_lt_add,
+    apply mul_lt_mul',
+    apply Hδ1,
+    split,
+    repeat assumption,
+    apply abs_nonneg,
+    assumption,
+    apply mul_lt_mul',
+    apply Habsf,
+    apply Hδ2,
+    split,
+    repeat assumption,
+    apply abs_nonneg,
+    apply add_pos_of_pos_of_nonneg,
+    apply zero_lt_one,
+    apply abs_nonneg,
+    krewrite [div_mul_eq_mul_div_comm],
+    rewrite [div_mul_left _ (ne_of_gt Hnelg), -mul_div_assoc, mul_one],
+    apply add_le_add_left,
+    krewrite [-mul_div_assoc, mul.comm, mul_div_mul_right' _ _ (ne_of_gt Hnelf)],
+    apply le.refl
+  end
+
+theorem lim_add_zero (f : ℝ → ℝ) (x : ℝ) (H : continuous_at f x) : (λ h, f (x + h)) ⟶ f x at 0 :=
+  begin
+    rewrite [↑continuous_at at H, ↑converges_to_at at *],
+    intro ε Hε,
+    let H' := H Hε,
+    cases H' with δ Hδ,
+    existsi δ,
+    split,
+    exact and.left Hδ,
+    intros,
+    have Hx' : dist x (x + x') < δ, begin
+      rewrite [dist_is_abs at *, sub_add_eq_sub_sub, sub_self],
+      exact and.right a
+    end,
+    have Hx'' : x ≠ x + x', begin
+      intro Heq,
+      note Heq' := sub_eq_of_eq_add' Heq,
+      rewrite [sub_self at Heq', Heq' at a],
+      exact and.left a !rfl
+    end,
+    apply and.right Hδ,
+    split,
+    repeat assumption
+  end
+
+theorem sub_converges_to_zero_of_converges_to (f : ℝ → ℝ) (lf x : ℝ) (H : f ⟶ lf at x) :
+        ((λ y, f y - lf) ⟶ 0 at x) :=
+  begin
+    rewrite [-sub_self lf],
+    apply sub_converges_to_at,
+    exact H,
+    apply converges_to_at_constant
+  end
+
+theorem converges_to_of_sub_converges_to_zero (f : ℝ → ℝ) (lf x : ℝ) (H : (λ y, f y - lf) ⟶ 0 at x) :
+        f ⟶ lf at x :=
+  begin
+    have Hf : f = (λ y, f y - lf + lf), from funext (λ y, eq.symm !sub_add_cancel),
+    rewrite [Hf, -zero_add lf at {3}],
+    apply add_converges_to_at,
+    assumption,
+    apply converges_to_at_constant
+  end
+
+theorem id_converges_to_at (x : ℝ) : (λ y, y) ⟶ x at x :=
+  begin
+    intros ε Hε,
+    existsi ε,
+    split,
+    exact Hε,
+    intro x' Hx',
+    rewrite dist_comm,
+    exact and.right Hx'
+  end
+
+end function_convergence
 end real
