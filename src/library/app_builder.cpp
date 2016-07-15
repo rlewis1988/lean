@@ -728,6 +728,20 @@ public:
         return ::lean::mk_app(mk_constant(get_right_distrib_name(), {lvl}), A, *A_distrib);
     }
 
+  expr mk_add(expr const & a, expr const & b) {
+    
+    expr const & A = m_ctx.infer(a);
+    std::cout << "in mk_add. a: " << a << ", A: " << A << "\n";
+    expr const & e = mk_partial_add(A);
+    return ::lean::mk_app({e, a, b});
+  }
+
+  expr mk_mul(expr const & a, expr const & b) {
+    expr const & A = m_ctx.infer(a);
+    expr const & e = mk_partial_mul(A);
+    return ::lean::mk_app({e, a, b});
+  }
+
     expr mk_false_rec(expr const & c, expr const & H) {
         level c_lvl = get_level(c);
         if (is_standard(m_ctx.env())) {
@@ -913,6 +927,7 @@ expr mk_partial_add(type_context & ctx, expr const & A) {
     return app_builder(ctx).mk_partial_add(A);
 }
 
+
 expr mk_partial_mul(type_context & ctx, expr const & A) {
     return app_builder(ctx).mk_partial_mul(A);
 }
@@ -931,6 +946,14 @@ expr mk_partial_left_distrib(type_context & ctx, expr const & A) {
 
 expr mk_partial_right_distrib(type_context & ctx, expr const & A) {
     return app_builder(ctx).mk_partial_right_distrib(A);
+}
+
+expr mk_add(type_context & ctx, expr const & a, expr const & b) {
+    return app_builder(ctx).mk_add(a, b);
+}
+  
+expr mk_mul(type_context & ctx, expr const & a, expr const & b) {
+    return app_builder(ctx).mk_mul(a, b);
 }
 
 expr mk_false_rec(type_context & ctx, expr const & c, expr const & H) {

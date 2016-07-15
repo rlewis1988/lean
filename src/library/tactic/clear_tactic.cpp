@@ -7,9 +7,14 @@ Author: Leonardo de Moura
 #include "library/vm/vm_name.h"
 #include "library/vm/vm_expr.h"
 #include "library/tactic/tactic_state.h"
+#include "library/wolfram.h"
+#include <string>
 
 namespace lean {
 expr clear(metavar_context & mctx, expr const & mvar, expr const & H) {
+  // std::string st = "Mul[Add[2, x], y] [nar] ";
+  //std::cout << "!!!\n";
+  //std::cout << wolfram_to_expr(st).to_string() << "\n";
     lean_assert(is_metavar(mvar));
     lean_assert(is_local(H));
     optional<metavar_decl> g   = mctx.get_metavar_decl(mvar);

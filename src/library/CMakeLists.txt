@@ -25,4 +25,5 @@ add_library(library OBJECT deep_copy.cpp expr_lt.cpp io_state.cpp
 
   # light_lt_manager.cpp
   # proof_irrel_expr_manager.cpp
+  wolfram.cpp
   )

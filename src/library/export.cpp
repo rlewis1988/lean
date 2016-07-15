@@ -11,8 +11,46 @@ Author: Leonardo de Moura
 #include "kernel/inductive/inductive.h"
 #include "library/module.h"
 #include "library/unfold_macros.h"
+#include "kernel/type_checker.h"
+#include "library/print.h"
+#include <sstream>
+#include <iostream>
 
 namespace lean {
+
+  std::string to_mathematica(expr const & e,
+			     std::unordered_map<unsigned, std::string> const & vn =
+			     std::unordered_map<unsigned, std::string>(), unsigned dpt = 0) {    
+    std::stringstream st;
+    if (is_pi(e) || is_lambda(e)) {
+      //      std::cout << "have pi.\nBinding name: " << binding_name(e) << "\nBinding domain: " << binding_domain(e) << "\nBinding body: " << binding_body(e) << "\n\n";
+      auto nmap = std::unordered_map<unsigned, std::string>(vn);
+      nmap[dpt] = binding_name(e).get_string();
+      auto bd = to_mathematica(binding_domain(e), vn, dpt);
+      auto bb = to_mathematica(binding_body(e), nmap, dpt+1);
+      st << "Lean`" << (is_pi(e) ? "Pi" : "Lambda") << "[" << binding_name(e) << ", " << bd << ", " << bb << "]";
+    } else if (is_var(e)) {
+      if (vn.count(dpt-var_idx(e)-1)) {
+	st << vn.at(dpt-var_idx(e)-1);
+      } else {
+	st << e;
+      }
+    } else if (is_constant(e)) {
+      st << const_name(e);
+    } else if (is_app(e)) {
+      auto hd = to_mathematica(app_fn(e), vn, dpt);
+      auto arg = to_mathematica(app_arg(e), vn, dpt);
+      st << "Lean`App[" << hd << ", " << arg << "]";
+    } else if (is_sort(e)) {
+      st << e; // strip level info?
+    } else if (is_local(e)) {
+      st << local_pp_name(e);
+    } else { // Meta, Let, Macro- these shouldn't show up
+      st << e;
+    }
+    return st.str();
+  }
+  
 template<typename T>
 using level_map = typename std::unordered_map<level, T, level_hash, level_eq>;
 
@@ -196,6 +234,10 @@ class exporter {
     }
 
     void export_definition(declaration const & d) {
+        if (type_checker(m_env).is_prop(d.get_type())) {
+	  std::cout << "Theorem: " << d.get_name() << "\n" << d.get_type() << "\n\n";
+	  std::cout << to_mathematica(d.get_type()) << "\n\n";
+	}
         if (already_exported(d.get_name()))
             return;
         mark(d.get_name());
@@ -354,4 +396,6 @@ void export_module_as_lowtext(std::ostream & out, environment const & env) {
 void export_all_as_lowtext(std::ostream & out, environment const & env) {
     exporter(out, env, true)();
 }
+
+
 }

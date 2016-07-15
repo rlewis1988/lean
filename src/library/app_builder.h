@@ -83,6 +83,7 @@ expr mk_eq_refl(type_context & ctx, expr const & a);
 expr mk_iff_refl(type_context & ctx, expr const & a);
 expr mk_heq_refl(type_context & ctx, expr const & a);
 
+ 
 /** \brief Similar a symmetry proof for the given relation */
 expr mk_symm(type_context & ctx, name const & relname, expr const & H);
 expr mk_eq_symm(type_context & ctx, expr const & H);
@@ -147,6 +148,9 @@ expr mk_zero(type_context & ctx, expr const & A);
 expr mk_one(type_context & ctx, expr const & A);
 expr mk_partial_left_distrib(type_context & ctx, expr const & A);
 expr mk_partial_right_distrib(type_context & ctx, expr const & A);
+
+ expr mk_add(type_context & ctx, expr const & a, expr const & b);
+ expr mk_mul(type_context & ctx, expr const & a, expr const & b);
 
 /** \brief False elimination */
 expr mk_false_rec(type_context & ctx, expr const & c, expr const & H);
