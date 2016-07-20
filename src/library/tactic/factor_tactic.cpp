@@ -11,6 +11,7 @@ Author: Robert Y. Lewis
 #include "library/app_builder.h"
 #include "library/util.h"
 #include "library/type_context.h"
+#include "library/trace.h"
 #include <string>
 
 namespace lean {
@@ -47,16 +48,56 @@ expr clearf(metavar_context & mctx, expr const & mvar, expr const & H) {
 	//	std::cout << "in clearf 2!\n";
 	//type_context_cache const tcc = type_context_cache(s.env(), options());
 	type_context tctx = mk_type_context_for(s, lctx);
-	std::cout << H << ", " << H2 << "\n";
-	auto addexpr = mk_mul(tctx, H, H2);
-	std::cout << "addexpr: " << addexpr << "\n\n\n";
+	//std::cout << H << ", " << H2 << "\n";
+	//auto addexpr = mk_mul(tctx, H, H2);
+	//std::cout << "addexpr: " << addexpr << "\n\n";
 
-	std::string st = "Mul[Add[2, x], y]";
+	/*	auto pt = tctx.infer(H2);
 
-        auto wt = wolfram_to_tree(st);
-	std::cout << "tree:\n" << wt.to_string() << "\n\n";
+	std::cout << "type of HPI: " << pt << "\n";
+	std::cout << "name: " << binding_name(pt) << "\n";
+	std::cout << "domain: " << binding_domain(pt) << "\n";
+	std::cout << "body: " << binding_body(pt) << "\n";
+	std::cout << "body body: " << binding_body(binding_body(pt)) << "\n";
+	std::cout << "info: " << &binding_info(pt) << "\n";
+	std::cout << "binder: " << &binding_binder(pt) << "\n";*/
 
-	std::cout << "to expression:\n" << wt.to_expr(tctx.infer(H), tctx);
+   	
+        //auto wt = wolfram_to_tree(st);
+	//std::cout << "got the tree!\n";
+	//std::cout << "tree:\n" << wt.to_string() << "\n\n";
+
+	//auto we = to_expr(wt, tctx.infer(H), tctx);
+
+	//std::cout << "to expression:\n";
+	//std::cout << we << "\n and again:\n";
+
+	//std::cout << wt.to_string() << "\n\n";
+
+	//	std::cout << to_expr(wt, tctx.infer(H), tctx) << "\n\n";
+	
+	//std::cout << "to wolfram string:\n";
+	//auto a = wolfram_string_of_tree(wt);
+	//std::cout << a << "\n";
+	std::string st =
+	  "Forall[q, nat, Forall[z, nat, Eq[Mul[Add[2, z], q], Add[Mul[2, q], Mul[z, q]]]]]";
+
+	st = "Forall[q, nat, Exists[z, nat, Eq[q, Add[z, 1]]]]";
+	std::unordered_map<std::string, expr> mapl = std::unordered_map<std::string, expr>();
+	//	mapl["x"] = mk_local(name("x"), tctx.infer(H));
+	mapl["y"] = mk_local(name("y"), tctx.infer(H));
+	mapl["nat"] = tctx.infer(H);
+	//std::cout << "make add: " << mk_add(tctx, mapl["x"], mapl["y"]);
+	expr dummy = mk_var(0);
+	mapl["Forall"] = dummy;
+	mapl["Exists"] = dummy;
+	mapl["Add"] = dummy;
+	mapl["Mul"] = dummy;
+	mapl["Eq"] = dummy;
+	auto wl = wolfram_to_lean(tctx, st, mapl);
+	tout() << "translated " << st << " to lean expression:\n\n";
+	tout() << wl << "\n\n";
+	std::cout << "full form:\n\n" << wl << "\n\n";
 	
         expr new_mvar        = clearf(mctx, *mvar, H);
     try {
@@ -81,7 +122,6 @@ vm_obj clearf_internal(name const & n, tactic_state const & s) {
 }
 
   vm_obj tactic_factor(vm_obj const & e0, vm_obj const & e01, vm_obj const & s) {
-    std::cout << "add: ...\n";// << addexpr << "\n";
     const ::lean::expr & e = to_expr(e0);
     const ::lean::expr &e1 = to_expr(e01);
     return clearf(e, e1, to_tactic_state(s));

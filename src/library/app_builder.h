@@ -151,6 +151,9 @@ expr mk_partial_right_distrib(type_context & ctx, expr const & A);
 
  expr mk_add(type_context & ctx, expr const & a, expr const & b);
  expr mk_mul(type_context & ctx, expr const & a, expr const & b);
+ expr mk_div(type_context & ctx, expr const & a, expr const & b);
+ expr mk_sub(type_context & ctx, expr const & a, expr const & b);
+ expr mk_neg(type_context & ctx, expr const & a);
 
 /** \brief False elimination */
 expr mk_false_rec(type_context & ctx, expr const & c, expr const & H);

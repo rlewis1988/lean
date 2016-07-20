@@ -78,6 +78,7 @@ public:
     expr from_pos_num(mpz const &, expr const &);
     expr from_num(mpz const &, expr const &);
     expr from_mpq(mpq const &, expr const &);
+    void set_lvls(levels const & lvls) {m_lvls = lvls;}
 };
 
 inline bool is_neg(expr const & e);
@@ -97,4 +98,11 @@ inline mpz num_of_expr(type_context & type_ctx, expr const & e) {
 inline mpq mpq_of_expr(type_context & type_ctx, expr const & e) {
     return norm_num_context(type_ctx).mpq_of_expr(e);
 }
+
+ inline expr num_of_mpz(type_context & type_ctx, mpz const & n, expr const & type) {
+   auto e = norm_num_context(type_ctx);
+   level l = sort_level(type_ctx.infer(type));
+   e.set_lvls({l});
+   return e.from_num(n, type);
+ }
 }

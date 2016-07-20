@@ -687,6 +687,26 @@ public:
         }
         return ::lean::mk_app(mk_constant(get_mul_name(), {lvl}), A, *A_has_mul);
     }
+  
+    expr mk_partial_sub(expr const & A) {
+        level lvl = get_level(A);
+        auto A_has_sub = m_ctx.mk_class_instance(::lean::mk_app(mk_constant(get_has_sub_name(), {lvl}), A));
+        if (!A_has_sub) {
+            trace_inst_failure(A, "has_sub");
+            throw app_builder_exception();
+        }
+        return ::lean::mk_app(mk_constant(get_mul_name(), {lvl}), A, *A_has_sub);
+    }
+  
+    expr mk_partial_div(expr const & A) {
+        level lvl = get_level(A);
+        auto A_has_div = m_ctx.mk_class_instance(::lean::mk_app(mk_constant(get_has_div_name(), {lvl}), A));
+        if (!A_has_div) {
+            trace_inst_failure(A, "has_div");
+            throw app_builder_exception();
+        }
+        return ::lean::mk_app(mk_constant(get_mul_name(), {lvl}), A, *A_has_div);
+    }
 
     expr mk_zero(expr const & A) {
         level lvl = get_level(A);
@@ -729,17 +749,47 @@ public:
     }
 
   expr mk_add(expr const & a, expr const & b) {
-    
     expr const & A = m_ctx.infer(a);
-    std::cout << "in mk_add. a: " << a << ", A: " << A << "\n";
-    expr const & e = mk_partial_add(A);
-    return ::lean::mk_app({e, a, b});
+    level lvl = get_level(A);
+    //    expr const & e = mk_partial_add(A);
+    lean::expr const args[2] = {a, b};
+    auto A_has_add = m_ctx.mk_class_instance(::lean::mk_app(mk_constant(get_has_add_name(), {lvl}), A));
+        if (!A_has_add) {
+            trace_inst_failure(A, "has_add");
+            throw app_builder_exception();
+        }
+	return ::lean::mk_app({mk_constant(get_add_name(), {lvl}), A, *A_has_add, a, b});
   }
+
 
   expr mk_mul(expr const & a, expr const & b) {
     expr const & A = m_ctx.infer(a);
     expr const & e = mk_partial_mul(A);
+    //return mk_app(get_mul_name(), 2, {a, b});
     return ::lean::mk_app({e, a, b});
+  }
+
+  expr mk_sub(expr const & a, expr const & b) {
+    expr const & A = m_ctx.infer(a);
+    expr const & e = mk_partial_sub(A);
+    return ::lean::mk_app({e, a, b});
+  }
+
+  expr mk_div(expr const & a, expr const & b) {
+    expr const & A = m_ctx.infer(a);
+    expr const & e = mk_partial_div(A);
+    return ::lean::mk_app({e, a, b});
+  }
+
+  expr mk_neg(expr const & a) {
+    expr const & A = m_ctx.infer(a);
+    level lvl = get_level(A);
+    auto A_has_neg = m_ctx.mk_class_instance(::lean::mk_app(mk_constant(get_has_neg_name(), {lvl}), A));
+    if (!A_has_neg) {
+          trace_inst_failure(A, "has_neg");
+          throw app_builder_exception();
+    }
+    return ::lean::mk_app(mk_constant(get_neg_name(), {lvl}), A, *A_has_neg);
   }
 
     expr mk_false_rec(expr const & c, expr const & H) {
@@ -949,11 +999,24 @@ expr mk_partial_right_distrib(type_context & ctx, expr const & A) {
 }
 
 expr mk_add(type_context & ctx, expr const & a, expr const & b) {
-    return app_builder(ctx).mk_add(a, b);
+  return app_builder(ctx).mk_add(expr(a), expr(b));
 }
+
+  expr mk_div(type_context & ctx, expr const & a, expr const & b) {
+    return app_builder(ctx).mk_div(a, b);
+  }
+  
+  expr mk_sub(type_context & ctx, expr const & a, expr const & b) {
+    return app_builder(ctx).mk_sub(a, b);
+  }
+  
+  expr mk_neg(type_context & ctx, expr const & a) {
+    return app_builder(ctx).mk_neg(a);
+  }
+
   
 expr mk_mul(type_context & ctx, expr const & a, expr const & b) {
-    return app_builder(ctx).mk_mul(a, b);
+  return app_builder(ctx).mk_mul(expr(a), expr(b));
 }
 
 expr mk_false_rec(type_context & ctx, expr const & c, expr const & H) {
