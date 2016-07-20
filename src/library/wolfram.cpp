@@ -306,6 +306,8 @@ namespace lean {
       new_map[p[0]] = mk_local(name(p[0]), const_map.at(p[1]));
       //std::cout << p[0] << "has been defined as " << new_map[p[0]] << ", type " << const_map.at(p[1]) << "\n";
       expr arg = wolfram_to_lean(tctx, p[2], new_map);
+      //std::cout << "in to lean. arg: " << arg << ". is_prop: " << tctx.is_prop(arg) << "\n";
+      if (!tctx.is_prop(arg)) throw exception("can only quantify over propositions");
       if (hd == "Forall") return mk_forall(new_map[p[0]], arg);
       else return mk_exists(new_map[p[0]], arg);
     }

@@ -12,6 +12,7 @@ Author: Robert Y. Lewis
 #include "library/util.h"
 #include "library/type_context.h"
 #include "library/trace.h"
+#include "library/constants.h"
 #include <string>
 
 namespace lean {
@@ -82,7 +83,8 @@ expr clearf(metavar_context & mctx, expr const & mvar, expr const & H) {
 	std::string st =
 	  "Forall[q, nat, Forall[z, nat, Eq[Mul[Add[2, z], q], Add[Mul[2, q], Mul[z, q]]]]]";
 
-	st = "Forall[q, nat, Exists[z, nat, Eq[q, Add[z, 1]]]]";
+	st = "Forall[q, nat, Exists[z, nat, And[Eq[Add[z, 1], q], Eq[q, z]]]]";
+	//	st = "Exists[z, nat, Add[z, 4]]";
 	std::unordered_map<std::string, expr> mapl = std::unordered_map<std::string, expr>();
 	//	mapl["x"] = mk_local(name("x"), tctx.infer(H));
 	mapl["y"] = mk_local(name("y"), tctx.infer(H));
@@ -94,10 +96,16 @@ expr clearf(metavar_context & mctx, expr const & mvar, expr const & H) {
 	mapl["Add"] = dummy;
 	mapl["Mul"] = dummy;
 	mapl["Eq"] = dummy;
+	mapl["And"] = mk_constant(get_and_name(), {});
+	mapl["Or"] = mk_constant(get_or_name(), {});
+	mapl["Not"] = mk_constant(get_not_name(), {});
+	mapl["Implies"] = mk_constant(get_implies_name(), {});
 	auto wl = wolfram_to_lean(tctx, st, mapl);
 	tout() << "translated " << st << " to lean expression:\n\n";
 	tout() << wl << "\n\n";
 	std::cout << "full form:\n\n" << wl << "\n\n";
+
+	std::cout << "does this make sense? " << tctx.check(wl) << "\n";
 	
         expr new_mvar        = clearf(mctx, *mvar, H);
     try {
