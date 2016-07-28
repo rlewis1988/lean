@@ -170,6 +170,9 @@ has_to_tactic_format.mk (return ∘ to_fmt)
 namespace tactic
 open tactic_state
 
+meta_constant translate_test: string → expr → tactic expr
+meta_constant translate_to_wl_test : expr → tactic unit
+
 meta_definition get_env : tactic environment :=
 do s ← read,
    return $ env s
@@ -205,7 +208,7 @@ meta_constant intron        : nat → tactic unit
 meta_constant rename        : name → name → tactic unit
 /- Clear the given local constant. The tactic fails if the given expression is not a local constant. -/
 meta_constant clear         : expr → tactic unit
-meta_constant factor        : expr → expr → tactic unit
+meta_constant factor        : expr → tactic expr
 meta_constant revert_lst    : list expr → tactic nat
 meta_constant whnf          : expr → tactic expr
 meta_constant unify_core    : transparency → expr → expr → tactic unit

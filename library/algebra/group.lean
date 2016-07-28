@@ -9,7 +9,6 @@ import logic.eq data.sigma data.prod
 import algebra.binary algebra.priority
 
 open binary
-
 variable {A : Type}
 
 /- semigroup -/

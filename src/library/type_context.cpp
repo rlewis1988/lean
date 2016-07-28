@@ -632,8 +632,10 @@ expr type_context::infer_constant(expr const & e) {
     declaration d   = env().get(const_name(e));
     auto const & ps = d.get_univ_params();
     auto const & ls = const_levels(e);
-    if (length(ps) != length(ls))
+    if (length(ps) != length(ls)) {
+      std::cout << "ERROR:: " << e << "\n";
         throw exception("infer type failed, incorrect number of universe levels");
+    }
     return instantiate_type_univ_params(d, ls);
 }
 
