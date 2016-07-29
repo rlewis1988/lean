@@ -789,7 +789,7 @@ public:
           trace_inst_failure(A, "has_neg");
           throw app_builder_exception();
     }
-    return ::lean::mk_app(mk_constant(get_neg_name(), {lvl}), A, *A_has_neg);
+    return ::lean::mk_app({mk_constant(get_neg_name(), {lvl}), A, *A_has_neg, a});
   }
 
     expr mk_false_rec(expr const & c, expr const & H) {

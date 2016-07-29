@@ -29,29 +29,6 @@ std::string exec(const char* cmd) {
     }
     return result;
 }
-  
-  
-expr clearf(metavar_context & mctx, expr const & mvar, expr const & H) {
-  /*std::string st = "Mul[Add[2, x], y] [nar] ";
-  std::cout << "!!!\n";
-  std::cout << wolfram_to_expr(st).to_string() << "\n";*/
-    lean_assert(is_metavar(mvar));
-    lean_assert(is_local(H));
-    optional<metavar_decl> g   = mctx.get_metavar_decl(mvar);
-    if (!g) throw exception("clear tactic failed, there are no goals to be solved");
-    local_context lctx         = g->get_context();
-    optional<local_decl> d     = lctx.get_local_decl(H);
-    if (!d)
-        throw exception(sstream() << "clear tactic failed, unknown '" << local_pp_name(H) << "' hypothesis");
-    if (depends_on(g->get_type(), 1, &H))
-        throw exception(sstream() << "clear tactic failed, target type depends on '" << local_pp_name(H) << "'");
-    if (optional<local_decl> d2 = lctx.has_dependencies(*d))
-        throw exception(sstream() << "clear tactic failed, hypothesis '" << d2->get_pp_name() << "' depends on '" << local_pp_name(H) << "'");
-    lctx.clear(*d);
-    expr new_mvar              = mctx.mk_metavar_decl(lctx, g->get_type());
-    mctx.assign(mvar, new_mvar);
-    return new_mvar;
-}
 
   vm_obj factor_string(std::string fac_str, expr tp, tactic_state const & s) {
     //lean_assert(is_local(H));
@@ -80,7 +57,11 @@ expr clearf(metavar_context & mctx, expr const & mvar, expr const & H) {
 	mapl["Exists"] = dummy;
 	mapl["Add"] = dummy;
 	mapl["Mul"] = dummy;
+	mapl["Subtract"] = dummy;
+	mapl["Divide"] = dummy;
+	mapl["Negative"] = dummy;
 	mapl["Eq"] = dummy;
+	mapl["LeanApp"] = dummy;
 	mapl["And"] = mk_constant(get_and_name(), {});
 	mapl["Or"] = mk_constant(get_or_name(), {});
 	mapl["Not"] = mk_constant(get_not_name(), {});
@@ -94,67 +75,6 @@ expr clearf(metavar_context & mctx, expr const & mvar, expr const & H) {
     } catch (exception & ex) {
         return mk_tactic_exception(ex, s);
     }
-}
-
-  vm_obj clearf(expr const & H, expr const & H2, tactic_state const & s) {
-    //lean_assert(is_local(H));
-        optional<expr> mvar  = s.get_main_goal();
-        if (!mvar) return mk_no_goals_exception(s);
-        metavar_context  mctx = s.mctx();
-        optional<metavar_decl> g   = s.get_main_goal_decl();
-        if (!g) return mk_no_goals_exception(s);
-        local_context  lctx         = g->get_context();
-
-	type_context tctx = mk_type_context_for(s, lctx);
-
-	std::string st =
-	  "Forall[q, nat, Forall[z, nat, Eq[Mul[Add[2, z], q], Add[Mul[2, q], Mul[z, q]]]]]";
-
-	st = "Forall[q, nat, Exists[z, nat, And[Eq[Add[z, 1], q], Eq[q, z]]]]";
-	//	st = "Forall[q, nat, Eq[Mul[Add[2, 2], q], q]]";
-	std::unordered_map<std::string, expr> mapl = std::unordered_map<std::string, expr>();
-	//mapl["x"] = mk_local(name("x"), tctx.infer(H));
-	//mapl["y"] = mk_local(name("y"), tctx.infer(H));
-	mapl["nat"] = tctx.infer(H);
-	//std::cout << "make add: " << mk_add(tctx, mapl["x"], mapl["y"]);
-	expr dummy = mk_var(0);
-	mapl["Forall"] = dummy;
-	mapl["Exists"] = dummy;
-	mapl["Add"] = dummy;
-	mapl["Mul"] = dummy;
-	mapl["Eq"] = dummy;
-	mapl["And"] = mk_constant(get_and_name(), {});
-	mapl["Or"] = mk_constant(get_or_name(), {});
-	mapl["Not"] = mk_constant(get_not_name(), {});
-	mapl["Implies"] = mk_constant(get_implies_name(), {});
-	auto wl = wolfram_to_lean(tctx, st, mapl);
-	tout() << "translated " << st << " to lean expression:\n\n";
-	tout() << wl << "\n\n";
-	std::cout << "full form:\n\n" << wl << "\n\n";
-
-	std::cout << "does this make sense? " << tctx.check(wl) << "\n";
-	
-        expr new_mvar        = clearf(mctx, *mvar, H);
-    try {
-    if (!is_local(H))
-        return mk_tactic_exception(sstream() << "clear tactic failed, given expression is not a local constant",
-                                   s);
-    //        return mk_tactic_success(set_mctx_goals(s, mctx, cons(new_mvar, tail(s.goals()))));
-	return mk_tactic_success(to_obj(wl), s);
-    } catch (exception & ex) {
-        return mk_tactic_exception(ex, s);
-    }
-}
-
-vm_obj clearf_internal(name const & n, tactic_state const & s) {
-     optional<metavar_decl> g   = s.get_main_goal_decl();
-     if (!g) return mk_no_goals_exception(s);
-     metavar_context mctx       = s.mctx();
-     local_context lctx         = g->get_context();
-     optional<local_decl> d     = lctx.get_local_decl(n);
-     if (!d)
-         return mk_tactic_exception(sstream() << "clear tactic failed, unknown '" << n << "' hypothesis", s);
-     return clearf(d->mk_ref(), d->mk_ref(), s);
 }
 
   vm_obj print_wl(expr e1, tactic_state const & s) {
@@ -186,7 +106,11 @@ vm_obj clearf_internal(name const & n, tactic_state const & s) {
     mapl["Exists"] = dummy;
     mapl["Plus"] = dummy;
     mapl["Times"] = dummy;
+    mapl["Subtract"] = dummy;
+    mapl["Divide"] = dummy;
+    mapl["Negative"] = dummy;
     mapl["Eq"] = dummy;
+    mapl["LeanApp"] = dummy;
     mapl["And"] = mk_constant(get_and_name(), {});
     mapl["Or"] = mk_constant(get_or_name(), {});
     mapl["Not"] = mk_constant(get_not_name(), {});
@@ -226,8 +150,56 @@ vm_obj clearf_internal(name const & n, tactic_state const & s) {
 
     auto pr = lean_to_wolfram(e1, true);
     auto str = pr.first;
-    std::cout << "Translated: " << e1 << "\n\nTo: " << str << "\n\n";
+    //std::cout << "Translated: " << e1 << "\n\nTo: " << str << "\n\n";
     std::string cmd = "WolframScript -script ~/translator/factor_script.m \\'" + str + "\\'";
+    auto output = exec(cmd.c_str());
+    //std::cout << "And back: " << output << "\n";
+
+    std::unordered_map<std::string, expr> mapl = std::unordered_map<std::string, expr>(pr.second);
+    mapl["nat"] = mk_constant(get_nat_name());
+    mapl["x"] = mk_local(name("x"), mapl["nat"]);
+    mapl["y"] = mk_local(name("y"), mapl["nat"]);
+    expr dummy = mk_var(0);
+    mapl["Forall"] = dummy;
+    mapl["Exists"] = dummy;
+    mapl["Plus"] = dummy;
+    mapl["Times"] = dummy;
+    mapl["Subtract"] = dummy;
+    mapl["Divide"] = dummy;
+    mapl["Negative"] = dummy;
+    mapl["Eq"] = dummy;
+    mapl["LeanApp"] = dummy;
+    mapl["And"] = mk_constant(get_and_name(), {});
+    mapl["Or"] = mk_constant(get_or_name(), {});
+    mapl["Not"] = mk_constant(get_not_name(), {});
+    mapl["Implies"] = mk_constant(get_implies_name(), {});
+    try {
+      expr wlt = wolfram_to_lean(tctx, output, mapl);
+      return mk_tactic_success(to_obj(wlt), s);
+    } catch (exception e) {
+      std::cout << "wolfram to lean failed on: " << output << "\n";
+      return mk_tactic_exception(sstream() << "wolfram_to_lean failed\n", s);
+    }
+  }
+
+  vm_obj tactic_wl_simplify(vm_obj const & e0, vm_obj const & s0) {
+    //    auto tc = mk_type_checker(const lean::environment &env);
+    //lean_assert(is_local(H));
+    expr e1 = to_expr(e0);
+    tactic_state s = to_tactic_state(s0);
+    optional<expr> mvar  = s.get_main_goal();
+    if (!mvar) return mk_no_goals_exception(s);
+    metavar_context  mctx = s.mctx();
+    optional<metavar_decl> g   = s.get_main_goal_decl();
+    if (!g) return mk_no_goals_exception(s);
+    local_context  lctx         = g->get_context();
+
+    type_context tctx = mk_type_context_for(s, lctx);
+
+    auto pr = lean_to_wolfram(e1, true);
+    auto str = pr.first;
+    std::cout << "Translated: " << e1 << "\n\nTo: " << str << "\n\n";
+    std::string cmd = "WolframScript -script ~/translator/simp_script.m \\'" + str + "\\'";
     auto output = exec(cmd.c_str());
     std::cout << "And back: " << output << "\n";
 
@@ -240,7 +212,11 @@ vm_obj clearf_internal(name const & n, tactic_state const & s) {
     mapl["Exists"] = dummy;
     mapl["Plus"] = dummy;
     mapl["Times"] = dummy;
+    mapl["Subtract"] = dummy;
+    mapl["Divide"] = dummy;
+    mapl["Negative"] = dummy;
     mapl["Eq"] = dummy;
+    mapl["LeanApp"] = dummy;
     mapl["And"] = mk_constant(get_and_name(), {});
     mapl["Or"] = mk_constant(get_or_name(), {});
     mapl["Not"] = mk_constant(get_not_name(), {});
@@ -257,6 +233,7 @@ void initialize_factor_tactic() {
     DECLARE_VM_BUILTIN(name({"tactic", "translate_to_wl_test"}),    tactic_translate_to_wl_test);
     DECLARE_VM_BUILTIN(name({"tactic", "translate_test"}),    tactic_translate_test);
     DECLARE_VM_BUILTIN(name({"tactic", "factor"}),    tactic_factor);
+    DECLARE_VM_BUILTIN(name({"tactic", "wl_simplify"}),    tactic_wl_simplify);
 }
 
 void finalize_factor_tactic() {
