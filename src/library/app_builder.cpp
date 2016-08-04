@@ -789,9 +789,44 @@ public:
           trace_inst_failure(A, "has_neg");
           throw app_builder_exception();
     }
+
     return ::lean::mk_app({mk_constant(get_neg_name(), {lvl}), A, *A_has_neg, a});
   }
 
+  expr mk_cons(expr const & a, expr const & b) {
+    expr const & A = m_ctx.infer(a);
+    level lvl = get_level(A);
+    return ::lean::mk_app({mk_constant(name("list", "cons"), {lvl}), A, a, b});
+  }
+
+  expr mk_nil(expr const & tp) {
+    level lvl = get_level(tp);
+    return ::lean::mk_app(mk_constant(name("list", "nil"), {lvl}), tp);
+  }
+
+  expr mk_pow_nat(expr const & a, expr const & b) {
+    expr const & A = m_ctx.infer(a);
+    level lvl = get_level(A);
+    auto A_has_pow =
+      m_ctx.mk_class_instance(::lean::mk_app(mk_constant(name("has_pow_nat"), {lvl}), A));
+    if (!A_has_pow) {
+      trace_inst_failure(A, "has_pow_nat");
+      throw app_builder_exception();
+    }
+    return ::lean::mk_app({mk_constant(name("pow_nat"), {lvl}), A, *A_has_pow, a, b});
+  }
+
+  expr mk_rat(expr const & inum, expr const & nden) {
+    // assumes inum is an int, nden is a nat
+    expr num = ::lean::mk_app(mk_constant(name("rat", "of_int")), inum);
+    expr den = ::lean::mk_app(mk_constant(name("rat", "of_nat")), nden);
+    return mk_div(num, den);
+  }
+
+  expr mk_rat_pow(expr const & base, expr const & exp) {
+    return ::lean::mk_app({mk_constant(name("rat_pow")), base, exp});
+  }
+  
     expr mk_false_rec(expr const & c, expr const & H) {
         level c_lvl = get_level(c);
         if (is_standard(m_ctx.env())) {
@@ -1012,6 +1047,26 @@ expr mk_add(type_context & ctx, expr const & a, expr const & b) {
   
   expr mk_neg(type_context & ctx, expr const & a) {
     return app_builder(ctx).mk_neg(a);
+  }
+
+  expr mk_cons(type_context & ctx, expr const & a, expr const & b) {
+    return app_builder(ctx).mk_cons(a, b);
+  }
+
+  expr mk_nil(type_context & ctx, expr const & tp) {
+    return app_builder(ctx).mk_nil(tp);
+  }
+
+  expr mk_rat(type_context & ctx, expr const & inum, expr const & nden) {
+    return app_builder(ctx).mk_rat(inum, nden);
+  }
+
+  expr mk_rat_pow(type_context & ctx, expr const & base, expr const & exp) {
+    return app_builder(ctx).mk_rat_pow(base, exp);
+  }
+  
+  expr mk_pow_nat(type_context & ctx, expr const & a, expr const & b) {
+    return app_builder(ctx).mk_pow_nat(a, b);
   }
 
   

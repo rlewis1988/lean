@@ -85,6 +85,7 @@ namespace lean {
 }
   
   expr wolfram_to_lean(type_context & tctx, std::string const & input, std::unordered_map<std::string, expr> const & const_map, expr default_type, bool use_default_type) {
+    std::cout << "in wolfram_to_lean. input: " << input << ", type: " << default_type << "\n";
     std::string nin = trim(input);
     nin = remove_chars(nin, "\"");
     unsigned i = 0;
@@ -106,9 +107,13 @@ namespace lean {
 	  j = 0;
 	}
 	if (j == hd.size() && use_default_type && i == nin.size()) {
-	  if (k >= 0)
+	  if (k >= 0) {
 	    return mk_num_term(tctx, k, default_type);
-	  else return mk_neg(tctx, mk_num_term(tctx, -k, default_type));
+	  } else {
+	    auto e1 =  mk_num_term(tctx, -k, default_type);
+	    auto e =  mk_neg(tctx, mk_num_term(tctx, -k, default_type));
+	    return e;
+	  }
 	} else {
 	  throw exception("const not known: " + hd);
 	}
@@ -143,10 +148,11 @@ namespace lean {
     }
 
     buffer<expr> args = buffer<expr>();
-    if (hd == "Plus" || hd == "Times" || hd == "Subtract" || hd == "Divide" || hd == "Eq") {
+    if (hd == "Plus" || hd == "Times" || hd == "Subtract" || hd == "Divide" || hd == "Equal") {
       // Arithmetic terms are also a special case: since they are expecting numerals as input,
       // we need to provide default types.
       // Either we know the default type already, or the types have to match.
+      if (p.size() != 2) std::cout << "not 2, but " << p.size() << ": " << hd << "\n";
       lean_assert(p.size() == 2);
       if (use_default_type) {
 	args.push_back(wolfram_to_lean(tctx, p[0], const_map, default_type, true));
@@ -169,9 +175,44 @@ namespace lean {
       }
     } else if (hd == "Negative") {
       args.push_back(wolfram_to_lean(tctx, p[0], const_map, default_type, use_default_type));
+    } else if (hd == "Rational") {
+      auto tpi = mk_constant(name("int"));
+      auto tpn = mk_constant(get_nat_name());
+      args.push_back(wolfram_to_lean(tctx, p[0], const_map, tpi, true));
+      args.push_back(wolfram_to_lean(tctx, p[1], const_map, tpn, true));
     } else if (hd == "LeanApp") {
       args.push_back(wolfram_to_lean(tctx, p[0], const_map, default_type, use_default_type));
       args.push_back(wolfram_to_lean(tctx, p[1], const_map, binding_body(tctx.infer(args[0])), true));
+    } else if (hd == "Power") {
+      auto t = mk_constant(name("rat"));
+      /*
+      args.push_back(wolfram_to_lean(tctx, p[0], const_map, default_type, use_default_type));
+      args.push_back(wolfram_to_lean(tctx, p[1], const_map, mk_constant(get_nat_name()), true));*/
+      args.push_back(wolfram_to_lean(tctx, p[0], const_map, t, true));
+      args.push_back(wolfram_to_lean(tctx, p[1], const_map, t, true));
+    } else if (hd == "ListCons") {
+      if (use_default_type) {
+	args.push_back(wolfram_to_lean(tctx, p[0], const_map, default_type, true));
+	args.push_back(wolfram_to_lean(tctx, p[1], const_map, default_type, true));
+      } else {
+	try {
+	  args.push_back(wolfram_to_lean(tctx, p[0], const_map));
+	  expr tp = tctx.infer(args[0]);
+	  args.push_back(wolfram_to_lean(tctx, p[1], const_map, tp, true));
+	} catch (exception e) {
+	  try {
+	    auto v = wolfram_to_lean(tctx, p[1], const_map);
+	    expr tp = app_arg(v);
+	    args.push_back(wolfram_to_lean(tctx, p[0], const_map, tp, true));
+	    args.push_back(v);
+	  } catch (exception e) {
+	    throw e;
+	  }
+	}
+      }
+    } else if (hd == "ListEnd") {
+      args.push_back(wolfram_to_lean(tctx, p[0], const_map, default_type, use_default_type));
+    } else if (hd == "ListNil") {
     } else { // we make no assumptions about the types of arguments so we pass no default.
       for (unsigned i = 0; i < p.size(); i++)
 	args.push_back(wolfram_to_lean(tctx, p[i], const_map));
@@ -194,12 +235,30 @@ namespace lean {
       return mk_mul(tctx, a1, a2);
     } else if (hd == "Negative") {
       return mk_neg(tctx, args[0]);
-    } else if (hd == "Eq") {
+    } else if (hd == "Equal") {
       expr const & a1 = args[0];
       expr const & a2 = args[1];
       return mk_eq(tctx, a1, a2);
+    } else if (hd == "Power") {
+      expr const & a1 = args[0];
+      expr const & a2 = args[1];
+      //return mk_pow_nat(tctx, a1, a2);
+      std::cout << "returning in power\n";
+      return mk_rat_pow(tctx, a1, a2);
     } else if (hd == "LeanApp") {
       return mk_app(args[0], args[1]);
+    } else if (hd == "ListCons") {
+      expr const & a1 = args[0];
+      expr const & a2 = args[1];
+      return mk_cons(tctx, a1, a2);
+    } else if (hd == "ListEnd") {
+      expr const & a1 = args[0];
+      expr const & tp = tctx.infer(a1);
+      return mk_cons(tctx, a1, mk_nil(tctx, tp));
+    } else if (hd == "Rational") {
+      expr const & a1 = args[0];
+      expr const & a2 = args[1];
+      return mk_rat(tctx, a1, a2);
     } else {
       for (unsigned i = 0; i < args.size(); i++)
 	ehd = mk_app(ehd, args[i]);

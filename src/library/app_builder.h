@@ -154,7 +154,11 @@ expr mk_partial_right_distrib(type_context & ctx, expr const & A);
  expr mk_div(type_context & ctx, expr const & a, expr const & b);
  expr mk_sub(type_context & ctx, expr const & a, expr const & b);
  expr mk_neg(type_context & ctx, expr const & a);
-
+ expr mk_pow_nat(type_context & ctx, expr const & a, expr const & b);
+ expr mk_cons(type_context & ctx, expr const & a, expr const & b);
+ expr mk_nil(type_context & ctx, expr const & tp);
+ expr mk_rat(type_context & ctx, expr const & inum, expr const & nden);
+ expr mk_rat_pow(type_context & ctx, expr const & base, expr const & exp);
 /** \brief False elimination */
 expr mk_false_rec(type_context & ctx, expr const & c, expr const & H);
 
