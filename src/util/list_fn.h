@@ -322,8 +322,8 @@ void for_each3(list<T1> const & l1, list<T2> const & l2, list<T3> const & l3, F 
 /** \brief Compare two lists using the binary predicate p. */
 template<typename T, typename P>
 bool compare(list<T> const & l1, list<T> const & l2, P && p) {
-    static_assert(std::is_same<typename std::result_of<P(T const &, T const &)>::type, bool>::value,
-                  "compare: return type of f is not bool");
+  //static_assert(std::is_same<typename std::result_of<P(T const &, T const &)>::type, bool>::value,
+  //              "compare: return type of f is not bool");
     auto it1 = l1.begin();
     auto it2 = l2.begin();
     auto end1 = l1.end();

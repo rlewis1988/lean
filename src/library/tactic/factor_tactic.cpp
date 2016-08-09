@@ -17,6 +17,8 @@ Author: Robert Y. Lewis
 #include "library/vm/vm_string.h"
 #include "library/norm_num.h"
 #include <string>
+#include "library/tactic/elaborate.h"
+#include "library/wl_mathlink.h"
 
 namespace lean {
 
@@ -367,6 +369,7 @@ std::string exec(const char* cmd) {
     //lean_assert(is_local(H));
     auto e1 = to_string(e0);
     auto script = to_string(scr);
+    
     tactic_state s = to_tactic_state(s0);
     optional<expr> mvar  = s.get_main_goal();
     if (!mvar) return mk_no_goals_exception(s);
@@ -379,17 +382,19 @@ std::string exec(const char* cmd) {
 
     //auto pr = lean_to_wolfram(e1, true);
     //auto str = pr.first;
-    std::string cmd = "WolframScript -script ~/translator/" + script + ".m \\'" + e1 + "\\'";
-    auto output = exec(cmd.c_str());
+    //std::string cmd = "WolframScript -script ~/translator/" + script + ".m \\'" + e1 + "\\'";
+    //auto output = exec(cmd.c_str());
 
     std::unordered_map<std::string, expr> mapl = std::unordered_map<std::string, expr>();
     fill_transl_map(&mapl);
-    try {
+    expr e = wl_process_cmd(tctx, lctx, mapl, e1);
+    /*try {
       expr wlt = wolfram_to_lean(tctx, output, mapl);
       return mk_tactic_success(to_obj(wlt), s);
     } catch (exception e) {
       return mk_tactic_exception(sstream() << "wolfram_to_lean failed\n", s);
-    }
+      }*/
+    return mk_tactic_success(to_obj(e), s);
   }
   
 void initialize_factor_tactic() {

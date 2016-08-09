@@ -212,7 +212,7 @@ meta_constant factor        : expr → tactic expr
 meta_constant factor_int    : nat → tactic expr
 meta_constant factor_matrix : expr → tactic expr
 meta_constant wl_simplify   : expr → tactic expr
-meta_constant wl_execute_str : string → string → tactic expr
+meta_constant wl_execute_str : string → string → tactic pexpr
 meta_constant wl_execute_expr : expr → string → tactic expr
 meta_constant revert_lst    : list expr → tactic nat
 meta_constant whnf          : expr → tactic expr
