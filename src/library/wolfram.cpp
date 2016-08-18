@@ -275,7 +275,7 @@ std::string lean_to_wolfram_aux_ne(expr const & e, stringmap * fvn, stringexprma
       auto nmap = std::unordered_map<unsigned, std::string>(vn);
       std::string nname;
       if (rename) {
-	nname = "mv__"+std::to_string(*fvn_next);
+	nname = "mv"+std::to_string(*fvn_next);
 	(*fvn_next)++;
       } else {
 	nname = binding_name(e).get_string();
@@ -304,17 +304,25 @@ std::string lean_to_wolfram_aux_ne(expr const & e, stringmap * fvn, stringexprma
       st << "LeanType[" << sort_level(e) << "]"; // strip level info?
     } else if (is_local(e)) {
       auto cst = local_pp_name(e).to_string();
+      //std::cout << "have " << e << ". type: " << mlocal_type(e) << "\n";
+      //expr etp = mlocal_type(e);
+      //std::cout << is_var(etp) << is_sort(etp) << is_constant(etp) << is_meta(etp) << is_local(etp)
+      //	<< mlocal_name(etp) << " " << mlocal_type(e) << "\n";
+      //auto tp = lean_to_wolfram_aux_ne(mlocal_type(e), fvn, fve, fvn_next, vn, dpt, rename);
+      //std::cout << "printed type " << mlocal_type(e) << " as: " << tp << "\n";
       if (rename && fvn->count(cst)) {
-	st << "LeanVar[\"" << fvn->at(cst) << "\"]";
+	st << "LeanLocal[\"" << fvn->at(cst) << "\"]";
       } else if (rename) {
-	fvn->emplace(cst, "mv__"+std::to_string(*fvn_next));
-	fve->emplace("mv__"+std::to_string(*fvn_next), e);
+	fvn->emplace(cst, "mv"+std::to_string(*fvn_next));
+	fve->emplace("mv"+std::to_string(*fvn_next), e);
 	(*fvn_next)++;
-	st << "LeanVar[\"" << fvn->at(cst) << "\"]";
+	st << "LeanLocal[\"" << fvn->at(cst) << "\"]";
       } else {
-	st << "LeanVar[\"" << cst << "\"]";
+	st << "LeanLocal[\"" << cst << "\"]";
 	fve->emplace(cst, e);
       }
+      // } else if (is_meta(e)) {
+      
       
     } else { // Meta, Let, Macro- these shouldn't show up
       st << e;
@@ -322,7 +330,7 @@ std::string lean_to_wolfram_aux_ne(expr const & e, stringmap * fvn, stringexprma
     return st.str();
   }
 
-  std::string lean_to_wolfram_aux(expr const & e, stringmap * fvn, stringexprmap * fve, int * fvn_next,
+  /*std::string lean_to_wolfram_aux(expr const & e, stringmap * fvn, stringexprmap * fve, int * fvn_next,
 		 std::unordered_map<unsigned, std::string> const & vn, unsigned dpt, bool rename) {    
     std::stringstream st;
     if (is_pi(e) || is_lambda(e)) {
@@ -375,7 +383,7 @@ std::string lean_to_wolfram_aux_ne(expr const & e, stringmap * fvn, stringexprma
       st << e;
     }
     return st.str();
-  }
+    }*/
 
   
     pair<std::string, stringexprmap> lean_to_wolfram(expr const & e, bool const & rename) {
@@ -384,7 +392,7 @@ std::string lean_to_wolfram_aux_ne(expr const & e, stringmap * fvn, stringexprma
     int inv = 0;
     int * next_var = &inv;
     return mk_pair(
-	 lean_to_wolfram_aux(e, fvn, fve, next_var,
+	 lean_to_wolfram_aux_ne(e, fvn, fve, next_var,
 			     std::unordered_map<unsigned, std::string>(), 0, rename),
 	 *fve);
   }

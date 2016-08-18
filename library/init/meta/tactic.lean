@@ -208,12 +208,13 @@ meta_constant intron        : nat → tactic unit
 meta_constant rename        : name → name → tactic unit
 /- Clear the given local constant. The tactic fails if the given expression is not a local constant. -/
 meta_constant clear         : expr → tactic unit
-meta_constant factor        : expr → tactic expr
-meta_constant factor_int    : nat → tactic expr
+meta_constant factor        : expr → tactic pexpr
+meta_constant factor_int    : nat → tactic pexpr
 meta_constant factor_matrix : expr → tactic expr
-meta_constant wl_simplify   : expr → tactic expr
-meta_constant wl_execute_str : string → string → tactic pexpr
-meta_constant wl_execute_expr : expr → string → tactic expr
+meta_constant wl_simplify   : expr → tactic pexpr
+meta_constant wl_execute_str : string → tactic pexpr
+meta_constant wl_execute_expr : expr → string → tactic pexpr
+meta_constant wl_execute_on_expr_using : string → expr → string → tactic pexpr
 meta_constant revert_lst    : list expr → tactic nat
 meta_constant whnf          : expr → tactic expr
 meta_constant unify_core    : transparency → expr → expr → tactic unit

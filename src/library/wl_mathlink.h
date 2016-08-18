@@ -10,8 +10,8 @@ Author: Robert Y. Lewis
 
 namespace lean {
 
-  MLINK send_wl_command(type_context ctx, local_context lctx, std::string cmd);
-  void reset_link(type_context ctx, local_context lctx, std::unordered_map<std::string, expr> cm, MLINK lp);
-  expr wl_process_cmd(type_context ctx, local_context lctx, std::unordered_map<std::string, expr> cm, std::string cmd);
+  MLINK send_wl_command(std::string cmd);
+  void reset_link(std::unordered_map<std::string, expr> cm, MLINK lp);
+  expr wl_process_cmd(std::unordered_map<std::string, expr> cm, std::string cmd);
   
 }

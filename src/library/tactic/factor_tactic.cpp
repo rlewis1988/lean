@@ -56,52 +56,6 @@ std::string exec(const char* cmd) {
     mapl->emplace("Implies", mk_constant(get_implies_name(), {}));
   }
 
-  /*vm_obj factor_string(std::string fac_str, expr tp, tactic_state const & s) {
-    //lean_assert(is_local(H));
-        optional<expr> mvar  = s.get_main_goal();
-        if (!mvar) return mk_no_goals_exception(s);
-        metavar_context  mctx = s.mctx();
-        optional<metavar_decl> g   = s.get_main_goal_decl();
-        if (!g) return mk_no_goals_exception(s);
-        local_context  lctx         = g->get_context();
-
-	type_context tctx = mk_type_context_for(s, lctx);
-
-	std::string st =
-	  "Forall[q, nat, Forall[z, nat, Eq[Mul[Add[2, z], q], Add[Mul[2, q], Mul[z, q]]]]]";
-
-	st = "Forall[q, nat, Exists[z, nat, And[Eq[Add[z, 1], q], Eq[q, z]]]]";
-	//	st = "Forall[q, nat, Eq[Mul[Add[2, 2], q], q]]";
-	st = fac_str;
-	std::unordered_map<std::string, expr> mapl = std::unordered_map<std::string, expr>();
-	//mapl["x"] = mk_local(name("x"), tctx.infer(H));
-	//mapl["y"] = mk_local(name("y"), tctx.infer(H));
-	mapl["nat"] = tctx.infer(tp); //mk_constant(get_nat_name(), {level(level())});
-	//std::cout << "make add: " << mk_add(tctx, mapl["x"], mapl["y"]);
-	expr dummy = mk_var(0);
-	mapl["Forall"] = dummy;
-	mapl["Exists"] = dummy;
-	mapl["Add"] = dummy;
-	mapl["Mul"] = dummy;
-	mapl["Subtract"] = dummy;
-	mapl["Divide"] = dummy;
-	mapl["Negative"] = dummy;
-	mapl["Eq"] = dummy;
-	mapl["LeanApp"] = dummy;
-	mapl["And"] = mk_constant(get_and_name(), {});
-	mapl["Or"] = mk_constant(get_or_name(), {});
-	mapl["Not"] = mk_constant(get_not_name(), {});
-	mapl["Implies"] = mk_constant(get_implies_name(), {});
-	auto wl = wolfram_to_lean(tctx, st, mapl);
-	tout() << "translated " << st << " to lean expression:\n\n";
-	tout() << wl << "\n\n";
-	//std::cout << "full form:\n\n" << wl << "\n\n";
-    try {
-	return mk_tactic_success(to_obj(wl), s);
-    } catch (exception & ex) {
-        return mk_tactic_exception(ex, s);
-    }
-    }*/
 
   vm_obj print_wl(expr e1, tactic_state const & s) {
     //    auto tc = mk_type_checker(const lean::environment &env);
@@ -117,32 +71,7 @@ std::string exec(const char* cmd) {
 
     auto str = lean_to_wolfram(e1);
     std::cout << "Translated: " << e1 << "\n\nTo: " << str << "\n\n";
-    /* std::string cmd = "WolframScript -script ~/translator/factor_script.m \\'" + str + "\\'";
-    auto output = exec(cmd.c_str());
-    std::cout << "And back: " << output << "\n";
 
-    
-    std::unordered_map<std::string, expr> mapl = std::unordered_map<std::string, expr>();
-    mapl["nat"] = mk_constant(get_nat_name());
-    mapl["x"] = mk_local(name("x"), mapl["nat"]);
-    mapl["y"] = mk_local(name("y"), mapl["nat"]);
-    //std::cout << "make add: " << mk_add(tctx, mapl["x"], mapl["y"]);
-    expr dummy = mk_var(0);
-    mapl["Forall"] = dummy;
-    mapl["Exists"] = dummy;
-    mapl["Plus"] = dummy;
-    mapl["Times"] = dummy;
-    mapl["Subtract"] = dummy;
-    mapl["Divide"] = dummy;
-    mapl["Negative"] = dummy;
-    mapl["Eq"] = dummy;
-    mapl["LeanApp"] = dummy;
-    mapl["And"] = mk_constant(get_and_name(), {});
-    mapl["Or"] = mk_constant(get_or_name(), {});
-    mapl["Not"] = mk_constant(get_not_name(), {});
-    mapl["Implies"] = mk_constant(get_implies_name(), {});
-    
-    std::cout << "lean term: " << wolfram_to_lean(tctx, output, mapl);*/
     return mk_tactic_success(s);
   }
   
@@ -152,12 +81,6 @@ std::string exec(const char* cmd) {
     return print_wl(e1, to_tactic_state(s));
 }
   
-  /* vm_obj tactic_translate_test(vm_obj const & e0, vm_obj const & tp, vm_obj const & s) {
-    
-    std::string e = to_string(e0);
-    const ::lean::expr e1 = to_expr(tp);
-    return factor_string(e, e1, to_tactic_state(s));
-    }*/
 
   vm_obj tactic_factor(vm_obj const & e0, vm_obj const & s0) {
     //    auto tc = mk_type_checker(const lean::environment &env);
@@ -175,36 +98,14 @@ std::string exec(const char* cmd) {
 
     auto pr = lean_to_wolfram(e1, true);
     auto str = pr.first;
-    //std::cout << "Translated: " << e1 << "\n\nTo: " << str << "\n\n";
-    std::string cmd = "WolframScript -script ~/translator/factor_script.m \\'" + str + "\\'";
-    auto output = exec(cmd.c_str());
-    //std::cout << "And back: " << output << "\n";
-
-    std::unordered_map<std::string, expr> mapl = std::unordered_map<std::string, expr>(pr.second);
-    /*mapl["nat"] = mk_constant(get_nat_name());
-    mapl["x"] = mk_local(name("x"), mapl["nat"]);
-    mapl["y"] = mk_local(name("y"), mapl["nat"]);
-    expr dummy = mk_var(0);
-    mapl["Forall"] = dummy;
-    mapl["Exists"] = dummy;
-    mapl["Plus"] = dummy;
-    mapl["Times"] = dummy;
-    mapl["Subtract"] = dummy;
-    mapl["Divide"] = dummy;
-    mapl["Negative"] = dummy;
-    mapl["Eq"] = dummy;
-    mapl["LeanApp"] = dummy;
-    mapl["Power"] = dummy;
-    mapl["And"] = mk_constant(get_and_name(), {});
-    mapl["Or"] = mk_constant(get_or_name(), {});
-    mapl["Not"] = mk_constant(get_not_name(), {});
-    mapl["Implies"] = mk_constant(get_implies_name(), {});*/
-    fill_transl_map(&mapl);
+    std::cout << "Translated: " << e1 << "\n\nTo: " << str << "\n\n";
+    std::string cmd = str + " // LeanConvert // Activate // Factor // arithsimp";
     try {
-      expr wlt = wolfram_to_lean(tctx, output, mapl);
+      expr wlt = wl_process_cmd(pr.second, cmd);
+      std::cout << "got: " << wlt << "\n";
       return mk_tactic_success(to_obj(wlt), s);
     } catch (exception e) {
-      std::cout << "wolfram to lean failed on: " << output << "\n";
+      std::cout << "wolfram to lean failed on: " << cmd << "\n";
       return mk_tactic_exception(sstream() << "wolfram_to_lean failed\n", s);
     }
   }
@@ -226,34 +127,12 @@ std::string exec(const char* cmd) {
     auto pr = lean_to_wolfram(e1, true);
     auto str = pr.first;
     //std::cout << "Translated: " << e1 << "\n\nTo: " << str << "\n\n";
-    std::string cmd = "WolframScript -script ~/translator/simp_script.m \\'" + str + "\\'";
-    auto output = exec(cmd.c_str());
-    //    std::cout << "And back: " << output << "\n";
-
-    std::unordered_map<std::string, expr> mapl = std::unordered_map<std::string, expr>(pr.second);
-    /*mapl["nat"] = mk_constant(get_nat_name());
-    mapl["x"] = mk_local(name("x"), mapl["nat"]);
-    mapl["y"] = mk_local(name("y"), mapl["nat"]);
-    expr dummy = mk_var(0);
-    mapl["Forall"] = dummy;
-    mapl["Exists"] = dummy;
-    mapl["Plus"] = dummy;
-    mapl["Times"] = dummy;
-    mapl["Subtract"] = dummy;
-    mapl["Divide"] = dummy;
-    mapl["Negative"] = dummy;
-    mapl["Eq"] = dummy;
-    mapl["Power"] = dummy;
-    mapl["LeanApp"] = dummy;
-    mapl["And"] = mk_constant(get_and_name(), {});
-    mapl["Or"] = mk_constant(get_or_name(), {});
-    mapl["Not"] = mk_constant(get_not_name(), {});
-    mapl["Implies"] = mk_constant(get_implies_name(), {});*/
-    fill_transl_map(&mapl);
+    std::string cmd = str + " // LeanConvert // Activate // Simplify // arithsimp // ListSimp";
     try {
-      expr wlt = wolfram_to_lean(tctx, output, mapl);
+      expr wlt = wl_process_cmd(pr.second, cmd);
       return mk_tactic_success(to_obj(wlt), s);
     } catch (exception e) {
+      std::cout << "wolfram to lean failed on: " << cmd << "\n";
       return mk_tactic_exception(sstream() << "wolfram_to_lean failed\n", s);
     }
   }
@@ -276,18 +155,20 @@ std::string exec(const char* cmd) {
 
     type_context tctx = mk_type_context_for(s, lctx);
     std::stringstream sst;
-    sst << "WolframScript -script ~/translator/factor_int_script.m " << *e1;
-    auto output = exec(sst.str().c_str());
-    try {
-      std::unordered_map<std::string, expr> mapl = std::unordered_map<std::string, expr>();
-      expr ntp = mk_constant(get_nat_name());
-      mapl["Power"] = ntp;
-      mapl["Times"] = ntp;
-      expr wlt = wolfram_to_lean(tctx, output, mapl, ntp, true);
+    sst << "FactorInteger[" << *e1 << "] // listSimp";
+
+        std::unordered_map<std::string, expr> mapl = std::unordered_map<std::string, expr>();
+    fill_transl_map(&mapl);
+    expr e = wl_process_cmd(mapl, sst.str());
+    /*try {
+      expr wlt = wolfram_to_lean(tctx, output, mapl);
       return mk_tactic_success(to_obj(wlt), s);
     } catch (exception e) {
-      return mk_tactic_exception(sstream() << "wolfram_to_lean failed in factor_int\n", s);
-    }
+      return mk_tactic_exception(sstream() << "wolfram_to_lean failed\n", s);
+      }*/
+    std::cout << "got factored: " << e << "\n";
+    return mk_tactic_success(to_obj(e), s);
+    
   }
 
   vm_obj tactic_factor_matrix(vm_obj const & e0, vm_obj const & s0) {
@@ -338,7 +219,7 @@ std::string exec(const char* cmd) {
     //    auto tc = mk_type_checker(const lean::environment &env);
     //lean_assert(is_local(H));
     expr e1 = to_expr(e0);
-    auto script = to_string(scr);
+    std::string script = to_string(scr);
     tactic_state s = to_tactic_state(s0);
     optional<expr> mvar  = s.get_main_goal();
     if (!mvar) return mk_no_goals_exception(s);
@@ -351,24 +232,20 @@ std::string exec(const char* cmd) {
 
     auto pr = lean_to_wolfram(e1, true);
     auto str = pr.first;
-    std::string cmd = "WolframScript -script ~/translator/" + script + ".m \\'" + str + "\\'";
-    auto output = exec(cmd.c_str());
+    std::cout << "expr is: " << str << "\n\n";
+    char * cmd = new char[str.size()+script.size()];
+    sprintf(cmd, script.c_str(), str.c_str());
 
-    std::unordered_map<std::string, expr> mapl = std::unordered_map<std::string, expr>(pr.second);
-    fill_transl_map(&mapl);
-    try {
-      expr wlt = wolfram_to_lean(tctx, output, mapl);
-      return mk_tactic_success(to_obj(wlt), s);
-    } catch (exception e) {
-      return mk_tactic_exception(sstream() << "wolfram_to_lean failed\n", s);
-    }
+    expr e = wl_process_cmd(pr.second, cmd);
+    return mk_tactic_success(to_obj(e), s);
+    
   }
 
-  vm_obj tactic_wl_execute_str(vm_obj const & e0, vm_obj const & scr, vm_obj const & s0) {
+  vm_obj tactic_wl_execute_str(vm_obj const & e0, vm_obj const & s0) {
     //    auto tc = mk_type_checker(const lean::environment &env);
     //lean_assert(is_local(H));
     auto e1 = to_string(e0);
-    auto script = to_string(scr);
+    //    auto script = to_string(scr);
     
     tactic_state s = to_tactic_state(s0);
     optional<expr> mvar  = s.get_main_goal();
@@ -386,14 +263,36 @@ std::string exec(const char* cmd) {
     //auto output = exec(cmd.c_str());
 
     std::unordered_map<std::string, expr> mapl = std::unordered_map<std::string, expr>();
-    fill_transl_map(&mapl);
-    expr e = wl_process_cmd(tctx, lctx, mapl, e1);
-    /*try {
-      expr wlt = wolfram_to_lean(tctx, output, mapl);
-      return mk_tactic_success(to_obj(wlt), s);
-    } catch (exception e) {
-      return mk_tactic_exception(sstream() << "wolfram_to_lean failed\n", s);
-      }*/
+    expr e = wl_process_cmd(mapl, e1);
+    return mk_tactic_success(to_obj(e), s);
+  }
+
+  vm_obj tactic_wl_execute_on_expr_using(vm_obj const & cmd, vm_obj const & e0, vm_obj const & scr, vm_obj const & s0) {
+    //    auto tc = mk_type_checker(const lean::environment &env);
+    //lean_assert(is_local(H));
+    auto cmdstr = to_string(cmd);
+    auto scrstr = to_string(scr);
+    auto e1 = to_expr(e0);
+    
+    tactic_state s = to_tactic_state(s0);
+    optional<expr> mvar  = s.get_main_goal();
+    if (!mvar) return mk_no_goals_exception(s);
+    metavar_context  mctx = s.mctx();
+    optional<metavar_decl> g   = s.get_main_goal_decl();
+    if (!g) return mk_no_goals_exception(s);
+    local_context  lctx         = g->get_context();
+
+    type_context tctx = mk_type_context_for(s, lctx);
+
+    auto pr = lean_to_wolfram(e1, true);
+    auto str = pr.first;
+    std::cout << "expr is: " << str << "\n\n";
+    char * cmdc = new char[scrstr.size()+cmdstr.size() + str.size() + 8];
+    std::cout << "cmdc made!" << scrstr.size()+cmdstr.size() + str.size() + 8 << "\n";
+    snprintf(cmdc, scrstr.size()+cmdstr.size() + str.size() + 8, ("Get[\"%s\"]; "+cmdstr).c_str(), scrstr.c_str(), str.c_str());
+    std::cout << "command: " << cmdc << "\n";
+    expr e = wl_process_cmd(pr.second, cmdc);
+    std::unordered_map<std::string, expr> mapl = std::unordered_map<std::string, expr>();
     return mk_tactic_success(to_obj(e), s);
   }
   
@@ -406,6 +305,7 @@ void initialize_factor_tactic() {
     DECLARE_VM_BUILTIN(name({"tactic", "factor_matrix"}), tactic_factor_matrix);
     DECLARE_VM_BUILTIN(name({"tactic", "wl_execute_expr"}), tactic_wl_execute_expr);
     DECLARE_VM_BUILTIN(name({"tactic", "wl_execute_str"}), tactic_wl_execute_str);
+    DECLARE_VM_BUILTIN(name({"tactic", "wl_execute_on_expr_using"}), tactic_wl_execute_on_expr_using);
 }
 
 void finalize_factor_tactic() {
