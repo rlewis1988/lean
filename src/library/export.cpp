@@ -205,12 +205,12 @@ class exporter {
     void export_definition(declaration const & d) {
       //if (type_checker(m_env).is_prop(d.get_type())) {
 	  //type_checker tc = type_checker(m_env);
-      std::cout << ((type_checker(m_env).is_prop(d.get_type())) ? "Theorem: " : "Definition: ")
+        std::cout << ((type_checker(m_env).is_prop(d.get_type())) ? "Theorem: " : "Definition: ")
 		<< d.get_name() << "\n" << d.get_type() << "\n\n";
 	  //tout() << d.get_type() << "\n\n";
 	  //	  auto pr = lean_to_wolfram(d.get_type(), true);
 	  //std::cout << pr.first << "\n\n";
-	  std::cout << lean_to_wolfram(d.get_type()) << "\n\n";
+	std::cout << lean_to_wolfram(d.get_type()) << "\n\n";
 	  //}
         if (already_exported(d.get_name()))
             return;
@@ -236,6 +236,9 @@ class exporter {
             return;
         if (already_exported(d.get_name()))
             return;
+        
+	//std::cout << "Axiom: " << d.get_name() << "\n" << d.get_type() << "\n\n";
+	//std::cout << lean_to_wolfram(d.get_type()) << "\n\n";
         mark(d.get_name());
         unsigned n = export_name(d.get_name());
         buffer<unsigned> ps;
@@ -254,6 +257,9 @@ class exporter {
         if (already_exported(n))
             return;
         mark(n);
+	declaration d = m_env.get(n);
+	//std::cout << "Inductive: " << d.get_name() << "\n" << d.get_type() << "\n\n";
+	//std::cout << lean_to_wolfram(d.get_type()) << "\n\n";
         std::tuple<level_param_names, unsigned, list<inductive::inductive_decl>> decls =
             *inductive::is_inductive_decl(m_env, n);
         if (m_all) {
@@ -264,14 +270,20 @@ class exporter {
                 }
             }
         }
-        for (name const & p : std::get<0>(decls))
+        for (name const & p : std::get<0>(decls)) 
             export_name(p);
         for (inductive::inductive_decl const & d : std::get<2>(decls)) {
             export_name(inductive::inductive_decl_name(d));
             export_root_expr(inductive::inductive_decl_type(d));
+	    std::cout << "Inductive: " << inductive::inductive_decl_name(d).to_string() << "\n" <<
+	      inductive::inductive_decl_type(d) << "\n\n";
+	    std::cout << lean_to_wolfram(inductive::inductive_decl_type(d)) << "\n\n";
             for (inductive::intro_rule const & c : inductive::inductive_decl_intros(d)) {
                 export_name(inductive::intro_rule_name(c));
                 export_root_expr(inductive::intro_rule_type(c));
+		std::cout << "Constructor: " << inductive::intro_rule_name(c).to_string() << "\n" <<
+		  inductive::intro_rule_type(c) << "\n\n";
+		std::cout << lean_to_wolfram(inductive::intro_rule_type(c)) << "\n\n";
             }
         }
         m_out << "#BIND " << std::get<1>(decls) << " " << length(std::get<2>(decls));

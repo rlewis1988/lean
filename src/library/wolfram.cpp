@@ -267,6 +267,36 @@ namespace lean {
     }          
   }
 
+  std::string print_level(level lv) {
+    if (is_zero(lv)) {
+      return "LeanZeroLevel";
+    } else if (is_succ(lv)) {
+      return "LeanLevelSucc[" + print_level(succ_of(lv)) + "]";
+    } else if (is_max(lv)) {
+      return "LeanLevelMax[" + print_level(max_lhs(lv)) + ", " + print_level(max_rhs(lv)) + "]";
+    } else if (is_imax(lv)) {
+      return "LeanLevelIMax[" + print_level(max_lhs(lv)) + ", " + print_level(max_rhs(lv)) + "]";
+    } else if (is_param(lv)) {
+      return "LeanLevelParam[\"" + param_id(lv).to_string() + "\"]";
+    } else if (is_global(lv)) {
+      return "LeanLevelGlobal[\"" + param_id(lv).to_string() + "\"]";
+    } else throw exception("bad level");
+  }
+
+  std::string print_levels_aux(levels lvs) {
+    if (is_nil(lvs)) {
+	return "";
+    } else {
+      return print_level(head(lvs)) + ", " + print_levels_aux(tail(lvs));
+    }
+  }
+  
+  std::string print_levels(levels lvs) {
+    std::string rv = "{" + print_levels_aux(lvs);
+    if (rv.size() == 1) return "{}";
+    else return rv.substr(0, rv.size()-2) + "}";
+  }
+
 std::string lean_to_wolfram_aux_ne(expr const & e, stringmap * fvn, stringexprmap * fve, int * fvn_next,
 		 std::unordered_map<unsigned, std::string> const & vn, unsigned dpt, bool rename) {    
     std::stringstream st;
@@ -278,7 +308,7 @@ std::string lean_to_wolfram_aux_ne(expr const & e, stringmap * fvn, stringexprma
 	nname = "mv"+std::to_string(*fvn_next);
 	(*fvn_next)++;
       } else {
-	nname = binding_name(e).get_string();
+	nname = (binding_name(e).is_string() ? binding_name(e).get_string() : std::to_string(binding_name(e).get_numeral()));
       }
       nmap[dpt] = nname;
       auto bd = lean_to_wolfram_aux_ne(binding_domain(e), fvn, fve, fvn_next, vn, dpt, rename);
@@ -295,13 +325,13 @@ std::string lean_to_wolfram_aux_ne(expr const & e, stringmap * fvn, stringexprma
       }
     } else if (is_constant(e)) {
       auto cst = const_name(e).to_string();
-      st << "LeanConst[\"" << cst << "\"]";
+      st << "LeanConst[\"" << cst << "\", " << print_levels(const_levels(e)) << "]";
     } else if (is_app(e)) {
       auto hd = lean_to_wolfram_aux_ne(app_fn(e), fvn, fve, fvn_next, vn, dpt, rename);
       auto arg = lean_to_wolfram_aux_ne(app_arg(e), fvn, fve, fvn_next, vn, dpt, rename);
       st << "LeanApp[" << hd << ", " << arg << "]";
     } else if (is_sort(e)) {
-      st << "LeanType[" << sort_level(e) << "]"; // strip level info?
+      st << "LeanType[" << print_level(sort_level(e)) << "]"; // strip level info?
     } else if (is_local(e)) {
       auto cst = local_pp_name(e).to_string();
       //std::cout << "have " << e << ". type: " << mlocal_type(e) << "\n";
