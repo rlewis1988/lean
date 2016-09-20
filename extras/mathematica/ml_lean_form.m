@@ -54,49 +54,49 @@ lfrules = {
 LeanForm[expr_] := (expr //. lfrules)
 ltrules = {
    LeanApp[
-     LeanApp[LeanApp[LeanApp[LeanConst["has_add.add"], _], _], 
+	   LeanApp[LeanApp[LeanApp[LeanConst["has_add.add", _], _], _], 
       x_], y_] -> Inactive[Plus][x, y],
    LeanApp[
-     LeanApp[LeanApp[LeanApp[LeanConst["has_mul.mul"], _], _], 
+	   LeanApp[LeanApp[LeanApp[LeanConst["has_mul.mul", _], _], _], 
       x_], y_] -> Inactive[Times][x, y],
    LeanApp[
-     LeanApp[LeanApp[LeanApp[LeanConst["has_div.div"], _], _], 
+	   LeanApp[LeanApp[LeanApp[LeanConst["has_div.div", _], _], _], 
       x_], y_] -> Inactive[Divide][x, y],
    LeanApp[
-     LeanApp[LeanApp[LeanApp[LeanConst["has_sub.sub"], _], _], 
+	   LeanApp[LeanApp[LeanApp[LeanConst["has_sub.sub", _], _], _], 
       x_], y_] -> Inactive[Subtract][x, y],
-   LeanApp[LeanApp[LeanApp[LeanConst["has_neg.neg"], _], _], 
+   LeanApp[LeanApp[LeanApp[LeanConst["has_neg.neg", _], _], _], 
      x_] -> Inactive[Times][-1, x],
-   LeanApp[LeanApp[LeanApp[LeanApp[LeanConst["pow_nat"], _], _], x_], y_] -> Inactive[Power][x, y],
-     LeanApp[LeanApp[LeanApp[LeanApp[LeanConst["add"], _], _], 
+   LeanApp[LeanApp[LeanApp[LeanApp[LeanConst["pow_nat", _], _], _], x_], y_] -> Inactive[Power][x, y],
+   LeanApp[LeanApp[LeanApp[LeanApp[LeanConst["add", _], _], _], 
       x_], y_] -> Inactive[Plus][x, y],
    LeanApp[
-     LeanApp[LeanApp[LeanApp[LeanConst["mul"], _], _], 
+	   LeanApp[LeanApp[LeanApp[LeanConst["mul", _], _], _], 
       x_], y_] -> Inactive[Times][x, y],
    LeanApp[
-     LeanApp[LeanApp[LeanApp[LeanConst["div"], _], _], 
+	   LeanApp[LeanApp[LeanApp[LeanConst["div", _], _], _], 
       x_], y_] -> Inactive[Divide][x, y],
    LeanApp[
-     LeanApp[LeanApp[LeanApp[LeanConst["sub"], _], _], 
+	   LeanApp[LeanApp[LeanApp[LeanConst["sub", _], _], _], 
       x_], y_] -> Inactive[Subtract][x, y],
-   LeanApp[LeanApp[LeanApp[LeanConst["neg"], _], _], 
+   LeanApp[LeanApp[LeanApp[LeanConst["neg", _], _], _], 
      x_] -> Inactive[Times][-1, x],
-   LeanApp[LeanApp[LeanConst["and"], x_], y_] -> 
+   LeanApp[LeanApp[LeanConst["and", _], x_], y_] -> 
     Inactive[And][x, y],
-   LeanApp[LeanApp[LeanConst["or"], x_], y_] -> 
+   LeanApp[LeanApp[LeanConst["or", _], x_], y_] -> 
     Inactive[Or][x, y],
-   LeanApp[LeanApp[LeanConst["implies"], x_], y_] -> 
+   LeanApp[LeanApp[LeanConst["implies", _], x_], y_] -> 
     Inactive[Implies][x, y],
-   LeanApp[LeanConst["not"], x_] -> Inactive[Not][x],
+   LeanApp[LeanConst["not", _], x_] -> Inactive[Not][x],
    LeanPi[_, LeanType[_], x_] -> x,
    LeanPi[a_, _, x_] -> Inactive[ForAll][a, x],
-   LeanApp[LeanApp[LeanConst["one"], _], _] -> 1,
-   LeanApp[LeanApp[LeanConst["zero"], _], _] -> 0,
-   LeanApp[LeanApp[LeanConst["has_one.one"], _], _] -> 1,
-   LeanApp[LeanApp[LeanConst["has_zero.zero"], _], _] -> 0,
-   LeanApp[LeanApp[LeanApp[LeanConst["bit0"], _], _], t_] -> 2*t,
-   LeanApp[LeanApp[LeanApp[LeanApp[LeanConst["bit1"], _], _], _], t_] -> 2*t+1,
-   LeanApp[LeanConst["list.nil"], _] -> {},
-   LeanApp[LeanApp[LeanApp[LeanConst["list.cons"], _], h_], t_List] -> Join[{h}, t]
+   LeanApp[LeanApp[LeanConst["one", _], _], _] -> 1,
+   LeanApp[LeanApp[LeanConst["zero", _], _], _] -> 0,
+   LeanApp[LeanApp[LeanConst["has_one.one", _], _], _] -> 1,
+   LeanApp[LeanApp[LeanConst["has_zero.zero", _], _], _] -> 0,
+   LeanApp[LeanApp[LeanApp[LeanConst["bit0", _], _], _], t_] -> 2*t,
+   LeanApp[LeanApp[LeanApp[LeanApp[LeanConst["bit1", _], _], _], _], t_] -> 2*t+1,
+   LeanApp[LeanConst["list.nil", _], _] -> {},
+   LeanApp[LeanApp[LeanApp[LeanConst["list.cons", _], _], h_], t_List] -> Join[{h}, t]
    };
 LeanConvert[expr_] := (expr //. ltrules)
