@@ -51,7 +51,7 @@ MLINK send_wl_command_without_server(string cmd) {
 
 
   MLPutFunction(lp, "Get", 1);
-  MLPutString(lp, "/home/rlewis/cpp/ml_lean_form.m");
+  MLPutString(lp, "../../extras/mathematica/ml_lean_form.m");
   MLEndPacket(lp);
   while (MLNextPacket(lp) != RETURNPKT) MLNewPacket(lp);
   MLNewPacket(lp);
@@ -68,8 +68,9 @@ MLINK send_wl_command_without_server(string cmd) {
   
   /* set_wl_command must always be followed by reset_link */
 MLINK send_wl_command(string cmd) {
+  return send_wl_command_without_server(cmd);
   ifstream infile;
-  infile.open("/home/rlewis/cpp/tmp/key_exch.txt");
+  infile.open("../../extras/mathematica/temp.txt");
   char output[9];
   if (infile.is_open()) {
     while (!infile.eof()) infile >> output;
@@ -95,14 +96,14 @@ MLINK send_wl_command(string cmd) {
   if (!MLActivate(lp)) {
     MLClose(lp);  
     ofstream outfile;
-    outfile.open("/home/rlewis/cpp/tmp/key_exch.txt");
+    outfile.open("../../extras/mathematica/temp.txt");
     outfile << "---------";
     outfile.close();
     return send_wl_command_without_server(cmd);
   }
   
   ofstream outfile;
-  outfile.open("/home/rlewis/cpp/tmp/key_exch.txt");
+  outfile.open("../../extras/mathematica/temp.txt");
   outfile << "*********";
   outfile.close();
   
@@ -127,7 +128,7 @@ MLINK send_wl_command(string cmd) {
 void reset_link(MLINK lp) {
   //std::cout << "bench 0\n";
   ifstream infile;
-  infile.open("/home/rlewis/cpp/tmp/key_exch.txt");
+  infile.open("../../extras/mathematica/temp.txt");
   char output[9];
   if (infile.is_open()) {
     while (!infile.eof()) infile >> output;
@@ -325,6 +326,10 @@ void reset_link(MLINK lp) {
     } else if (hd == "LeanPair") {
       return [](expr * args) {
 	return mk_app(mk_constant(get_prod_mk_name()), args[0], args[1]);
+      };
+    } else if (hd == "LeanLevelParam") {
+      return [](expr * args) {
+	return args[0];
       };
     } else {
       return [&hd, &nargs](expr * args) {
