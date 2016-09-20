@@ -102,7 +102,6 @@ std::string exec(const char* cmd) {
     std::string cmd = str + " // LeanConvert // Activate // Factor // arithsimp";
     try {
       expr wlt = wl_process_cmd(pr.second, cmd);
-      std::cout << "got: " << wlt << "\n";
       return mk_tactic_success(to_obj(wlt), s);
     } catch (exception e) {
       std::cout << "wolfram to lean failed on: " << cmd << "\n";
@@ -267,7 +266,35 @@ std::string exec(const char* cmd) {
     return mk_tactic_success(to_obj(e), s);
   }
 
-  vm_obj tactic_wl_execute_on_expr_using(vm_obj const & cmd, vm_obj const & e0, vm_obj const & scr, vm_obj const & s0) {
+  vm_obj tactic_wl_execute_on_expr(vm_obj const & cmd, vm_obj const & e0, vm_obj const & s0) {
+    //    auto tc = mk_type_checker(const lean::environment &env);
+    //lean_assert(is_local(H));
+    auto cmdstr = to_string(cmd);
+    auto e1 = to_expr(e0);
+    
+    tactic_state s = to_tactic_state(s0);
+    optional<expr> mvar  = s.get_main_goal();
+    if (!mvar) return mk_no_goals_exception(s);
+    metavar_context  mctx = s.mctx();
+    optional<metavar_decl> g   = s.get_main_goal_decl();
+    if (!g) return mk_no_goals_exception(s);
+    local_context  lctx         = g->get_context();
+
+    type_context tctx = mk_type_context_for(s, lctx);
+
+    auto pr = lean_to_wolfram(e1, true);
+    auto str = pr.first;
+    std::cout << "expr is: " << str << "\n\n";
+    char * cmdc = new char[cmdstr.size() + str.size()];
+    // std::cout << "cmdc made!" << scrstr.size()+cmdstr.size() + str.size() + 8 << "\n";
+    snprintf(cmdc, cmdstr.size() + str.size(), cmdstr.c_str(), str.c_str());
+    //std::cout << "command: " << cmdc << "\n";
+    expr e = wl_process_cmd(pr.second, cmdc);
+    //std::cout << "got: " << e << "\n";
+    //std::unordered_map<std::string, expr> mapl = std::unordered_map<std::string, expr>();
+    return mk_tactic_success(to_obj(e), s);
+  }
+vm_obj tactic_wl_execute_on_expr_using(vm_obj const & cmd, vm_obj const & e0, vm_obj const & scr, vm_obj const & s0) {
     //    auto tc = mk_type_checker(const lean::environment &env);
     //lean_assert(is_local(H));
     auto cmdstr = to_string(cmd);
@@ -295,6 +322,7 @@ std::string exec(const char* cmd) {
     std::unordered_map<std::string, expr> mapl = std::unordered_map<std::string, expr>();
     return mk_tactic_success(to_obj(e), s);
   }
+
   
 void initialize_factor_tactic() {
     DECLARE_VM_BUILTIN(name({"tactic", "translate_to_wl_test"}),    tactic_translate_to_wl_test);
@@ -306,6 +334,7 @@ void initialize_factor_tactic() {
     DECLARE_VM_BUILTIN(name({"tactic", "wl_execute_expr"}), tactic_wl_execute_expr);
     DECLARE_VM_BUILTIN(name({"tactic", "wl_execute_str"}), tactic_wl_execute_str);
     DECLARE_VM_BUILTIN(name({"tactic", "wl_execute_on_expr_using"}), tactic_wl_execute_on_expr_using);
+    DECLARE_VM_BUILTIN(name({"tactic", "wl_execute_on_expr"}), tactic_wl_execute_on_expr);
 }
 
 void finalize_factor_tactic() {

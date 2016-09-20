@@ -215,6 +215,7 @@ meta_constant wl_simplify   : expr → tactic pexpr
 meta_constant wl_execute_str : string → tactic pexpr
 meta_constant wl_execute_expr : expr → string → tactic pexpr
 meta_constant wl_execute_on_expr_using : string → expr → string → tactic pexpr
+meta_constant wl_execute_on_expr : string → expr → tactic pexpr
 meta_constant revert_lst    : list expr → tactic nat
 meta_constant whnf          : expr → tactic expr
 meta_constant unify_core    : transparency → expr → expr → tactic unit

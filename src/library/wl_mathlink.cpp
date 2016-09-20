@@ -125,7 +125,7 @@ MLINK send_wl_command(string cmd) {
 }
 
 void reset_link(MLINK lp) {
-  std::cout << "bench 0\n";
+  //std::cout << "bench 0\n";
   ifstream infile;
   infile.open("/home/rlewis/cpp/tmp/key_exch.txt");
   char output[9];
@@ -280,7 +280,7 @@ void reset_link(MLINK lp) {
       return [](expr * args) {
 	expr e0 = args[0];
 	expr e1 = args[1];
-	std::cout << "making app: " << mk_app(e0, e1) << "\n";
+	//std::cout << "making app: " << mk_app(e0, e1) << "\n";
 	return mk_app(e0, e1); // mk_as_is?
       };
 
@@ -328,7 +328,7 @@ void reset_link(MLINK lp) {
       };
     } else {
       return [&hd, &nargs](expr * args) {
-	std::cout << "making explicit hd: " << hd << "\n";
+	//std::cout << "making explicit hd: " << hd << "\n";
 	expr ah = mk_partial_explicit(mk_constant(name(hd), {mk_level_placeholder()}));
 	buffer<expr> newargs = buffer<expr>();
 	newargs.push_back(ah);
@@ -350,7 +350,7 @@ void reset_link(MLINK lp) {
   
   expr expr_from_wl_link(const_map cm, MLINK lp) {
     auto tp = MLGetType(lp);
-    //std::cout << "tp: " << tp << "\n";
+    std::cout << "tp: " << tp << "\n";
     switch (tp) {
     case MLTKSTR: { // Return a string wrapped in a local variable. This should be unpacked immediately
       const char *s;
@@ -363,7 +363,6 @@ void reset_link(MLINK lp) {
     case MLTKINT: {
       int s;
       MLGetInteger(lp, &s);
-      std::cout << "link gave int: " << s << "\n";
       return pnum_of_int(s);
       break;
     }
@@ -375,13 +374,13 @@ void reset_link(MLINK lp) {
       std::cout << "link gave func: " << hd << len << "\n";
       buffer<expr> args = buffer<expr>();
       for (int i = 0; i < len; i++) {
-	std::cout << "getting arg " << i << " for " << hd << "\n";
+	//std::cout << "getting arg " << i << " for " << hd << "\n";
 	args.push_back(expr_from_wl_link(cm, lp));
-	std::cout << "got arg " << i << " for " << hd << "\n";
+	//std::cout << "got arg " << i << " for " << hd << "\n";
       }
-      std::cout << "got arg data for " << hd << "\n";
+      //std::cout << "got arg data for " << hd << "\n";
       if (cm.count(hd)) {
-	std::cout << "in table! " << hd << "\n";
+	//std::cout << "in table! " << hd << "\n";
 	args.insert(0, cm[hd]);
 	return mk_app(args);
       } else {
@@ -392,14 +391,14 @@ void reset_link(MLINK lp) {
     case MLTKREAL: {
       double d;
       MLGetReal(lp, &d);
-      std::cout << "link gave real: " << d << "\n";
+      //std::cout << "link gave real: " << d << "\n";
       throw exception("cannot handle reals from mathematica");
       break;
     }
     case MLTKSYM: {
       const char *s;
       MLGetSymbol(lp, &s); // need to release?
-      std::cout << "link gave symbol: " << s << " in map? " << cm.count(s) << "\n";
+      //std::cout << "link gave symbol: " << s << " in map? " << cm.count(s) << "\n";
       //if (cm.count(s)) return cm[s];
       //else return mk_local(name(s), expr());//mk_explicit(mk_constant(name(s), {mk_level_placeholder()}));
       return mk_translate_constant(s);
