@@ -135,6 +135,8 @@ if((${CYGWIN} EQUAL "1") OR (${CMAKE_SYSTEM_NAME} MATCHES "Windows"))
   set(EXTRA_UTIL_LIBS ${EXTRA_UTIL_LIBS} -lpsapi)
 endif()
 
+set(LEAN_EXTRA_LINKER_FLAGS "-L/usr/local/Wolfram/Mathematica/11.0/SystemFiles/Links/MathLink/DeveloperKit/Linux-x86-64/CompilerAdditions ${LEAN_EXTRA_LINKER_FLAGS} ")
+
 if("${CYGWIN}" EQUAL "1")
   set(LEAN_EXTRA_CXX_FLAGS "${LEAN_EXTRA_CXX_FLAGS} -D LEAN_CYGWIN")
 endif()
@@ -265,6 +267,8 @@ else()
     include_directories(${GMP_INCLUDE_DIR})
     set(EXTRA_LIBS ${EXTRA_LIBS} ${GMP_LIBRARIES})
 endif()
+
+set(EXTRA_LIBS ${EXTRA_LIBS} "ML64i4" "uuid" "dl" "m" "rt")
 
 # DL
 if (EMSCRIPTEN)

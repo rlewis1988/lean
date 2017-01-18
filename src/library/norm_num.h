@@ -81,7 +81,6 @@ class norm_num_context {
     mpq mpq_of_expr(expr const & e);
     optional<mpq> to_mpq(expr const & e);
     expr mk_norm_eq(expr const &, expr const &);
-
 public:
     norm_num_context(type_context & ctx): m_ctx(ctx), m_ainst(ctx) {}
 
@@ -90,5 +89,9 @@ public:
 
 inline pair<expr, expr> mk_norm_num(type_context & ctx, expr const & e) {
     return norm_num_context(ctx).mk_norm(e);
+}
+
+inline bool is_numeral(type_context & type_ctx, expr const & e) {
+    return norm_num_context(type_ctx).is_numeral(e);
 }
 }
