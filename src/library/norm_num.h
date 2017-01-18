@@ -78,6 +78,10 @@ public:
     expr from_pos_num(mpz const &, expr const &);
     expr from_num(mpz const &, expr const &);
     expr from_mpq(mpq const &, expr const &);
+
+    void set_lvls(levels const & ls) {
+      m_lvls = ls;
+    }
 };
 
 inline bool is_numeral(type_context & type_ctx, expr const & e) {

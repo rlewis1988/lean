@@ -18,4 +18,5 @@ add_library(library OBJECT deep_copy.cpp expr_lt.cpp io_state.cpp
   locals.cpp normalize.cpp discr_tree.cpp
   mt_task_queue.cpp st_task_queue.cpp task_helper.cpp
   messages.cpp message_buffer.cpp versioned_msg_buf.cpp message_builder.cpp module_mgr.cpp comp_val.cpp
-  documentation.cpp check.cpp)
+  documentation.cpp check.cpp
+  wolfram.cpp wl_mathlink.cpp)
