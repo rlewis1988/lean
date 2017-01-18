@@ -97,6 +97,14 @@ ltrules = {
    LeanApp[LeanApp[LeanApp[LeanConst["bit0", _], _], _], t_] -> 2*t,
    LeanApp[LeanApp[LeanApp[LeanApp[LeanConst["bit1", _], _], _], _], t_] -> 2*t+1,
    LeanApp[LeanConst["list.nil", _], _] -> {},
-   LeanApp[LeanApp[LeanApp[LeanConst["list.cons", _], _], h_], t_List] -> Join[{h}, t]
+   LeanApp[LeanApp[LeanApp[LeanConst["list.cons", _], _], h_], t_List] -> Join[{h}, t],
+   LeanApp[LeanApp[LeanApp[LeanApp[LeanConst["lt", _], _], _], x_], y_] -> Inactive[Less][x, y],
+   LeanApp[LeanApp[LeanApp[LeanApp[LeanConst["has_lt.lt", _], _], _], x_], y_] -> Inactive[Less][x, y],
+   LeanApp[LeanApp[LeanApp[LeanApp[LeanConst["le", _], _], _], x_], y_] -> Inactive[LessEqual][x, y],
+   LeanApp[LeanApp[LeanApp[LeanApp[LeanConst["has_le.le", _], _], _], x_], y_] -> Inactive[LessEqual][x, y],
+   LeanApp[LeanApp[LeanApp[LeanApp[LeanConst["gt", _], _], _], x_], y_] -> Inactive[Greater][x, y],
+   LeanApp[LeanApp[LeanApp[LeanApp[LeanConst["has_gt.gt", _], _], _], x_], y_] -> Inactive[Greater][x, y],
+   LeanApp[LeanApp[LeanApp[LeanApp[LeanConst["ge", _], _], _], x_], y_] -> Inactive[GreaterEqual][x, y],
+   LeanApp[LeanApp[LeanApp[LeanApp[LeanConst["has_ge.ge", _], _], _], x_], y_] -> Inactive[GreaterEqual][x, y]
    };
 LeanConvert[expr_] := (expr //. ltrules)

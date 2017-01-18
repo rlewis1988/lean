@@ -71,7 +71,7 @@ MLINK send_wl_command_without_server(string cmd) {
   
   /* set_wl_command must always be followed by reset_link */
 MLINK send_wl_command(string cmd) {
-  return send_wl_command_without_server(cmd);
+  return send_wl_command_without_server(cmd); // short-circuit the kernel launcher
   ifstream infile;
   infile.open(fns_path);
   char output[9];
