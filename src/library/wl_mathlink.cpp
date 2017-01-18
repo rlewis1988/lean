@@ -16,6 +16,9 @@ using namespace std;
 
 namespace lean {
 
+  static const char* fns_path = "~/lean/lean/extras/mathematica/ml_lean_form.m";
+  static const char* key_ex_path = "~/lean/lean/extras/mathematica/temp.txt";
+
 MLINK send_wl_command_without_server(string cmd) {
   int pid;
 
@@ -23,7 +26,7 @@ MLINK send_wl_command_without_server(string cmd) {
   MLEnvironment env;
 
   /*ifstream infile;
-  infile.open("/home/rlewis/cpp/tmp/key_exch.txt");
+  infile.open(key_ex_path);
   char output[9];
   if (infile.is_open()) {
     while (!infile.eof()) infile >> output;
@@ -51,7 +54,7 @@ MLINK send_wl_command_without_server(string cmd) {
 
 
   MLPutFunction(lp, "Get", 1);
-  MLPutString(lp, "../../extras/mathematica/ml_lean_form.m");
+  MLPutString(lp, fns_path);
   MLEndPacket(lp);
   while (MLNextPacket(lp) != RETURNPKT) MLNewPacket(lp);
   MLNewPacket(lp);
@@ -70,7 +73,7 @@ MLINK send_wl_command_without_server(string cmd) {
 MLINK send_wl_command(string cmd) {
   return send_wl_command_without_server(cmd);
   ifstream infile;
-  infile.open("../../extras/mathematica/temp.txt");
+  infile.open(fns_path);
   char output[9];
   if (infile.is_open()) {
     while (!infile.eof()) infile >> output;
@@ -96,14 +99,14 @@ MLINK send_wl_command(string cmd) {
   if (!MLActivate(lp)) {
     MLClose(lp);  
     ofstream outfile;
-    outfile.open("../../extras/mathematica/temp.txt");
+    outfile.open(key_ex_path);
     outfile << "---------";
     outfile.close();
     return send_wl_command_without_server(cmd);
   }
   
   ofstream outfile;
-  outfile.open("../../extras/mathematica/temp.txt");
+  outfile.open(key_ex_path);
   outfile << "*********";
   outfile.close();
   
@@ -115,6 +118,12 @@ MLINK send_wl_command(string cmd) {
   while (MLNextPacket(lp) != RETURNPKT) MLNewPacket(lp);
   MLGetInteger(lp, &pid);
   printf("process id: %d\n", pid);
+  
+  MLPutFunction(lp, "Get", 1);
+  MLPutString(lp, fns_path);
+  MLEndPacket(lp);
+  while (MLNextPacket(lp) != RETURNPKT) MLNewPacket(lp);
+  MLNewPacket(lp);
 
   MLPutFunction(lp, "EvaluatePacket", 1);
   MLPutFunction(lp, "ToExpression", 1);
@@ -128,7 +137,7 @@ MLINK send_wl_command(string cmd) {
 void reset_link(MLINK lp) {
   //std::cout << "bench 0\n";
   ifstream infile;
-  infile.open("../../extras/mathematica/temp.txt");
+  infile.open(key_ex_path);
   char output[9];
   if (infile.is_open()) {
     while (!infile.eof()) infile >> output;
@@ -178,7 +187,7 @@ void reset_link(MLINK lp) {
   
   printf("link name: %s\n", link_name);
   ofstream outfile;
-  outfile.open("/home/rlewis/cpp/tmp/key_exch.txt");
+  outfile.open(key_ex_path);
   outfile << link_name;
   outfile.close();
   //std::cout << "bench 4\n";
