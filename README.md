@@ -15,6 +15,8 @@
 [![Issue Stats](http://issuestats.com/github/leanprover/lean/badge/pr)](http://issuestats.com/github/leanprover/lean)
 [![Issue Stats](http://issuestats.com/github/leanprover/lean/badge/issue)](http://issuestats.com/github/leanprover/lean)
 
+THIS BRANCH IS DEPRECIATED. SEE BRANCH mathematica
+
 About
 -----
 
