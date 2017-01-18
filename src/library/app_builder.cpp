@@ -716,6 +716,26 @@ public:
         return ::lean::mk_app(mk_constant(get_has_mul_mul_name(), {lvl}), A, *A_has_mul);
     }
 
+      expr mk_partial_sub(expr const & A) {
+        level lvl = get_level(A);
+        auto A_has_sub = m_ctx.mk_class_instance(::lean::mk_app(mk_constant(get_has_sub_name(), {lvl}), A));
+        if (!A_has_sub) {
+            trace_inst_failure(A, "has_sub");
+            throw app_builder_exception();
+        }
+        return ::lean::mk_app(mk_constant(get_mul_name(), {lvl}), A, *A_has_sub);
+    }
+  
+    expr mk_partial_div(expr const & A) {
+        level lvl = get_level(A);
+        auto A_has_div = m_ctx.mk_class_instance(::lean::mk_app(mk_constant(get_has_div_name(), {lvl}), A));
+        if (!A_has_div) {
+            trace_inst_failure(A, "has_div");
+            throw app_builder_exception();
+        }
+        return ::lean::mk_app(mk_constant(get_mul_name(), {lvl}), A, *A_has_div);
+    }
+
     expr mk_zero(expr const & A) {
         level lvl = get_level(A);
         auto A_has_zero = m_ctx.mk_class_instance(::lean::mk_app(mk_constant(get_has_zero_name(), {lvl}), A));
@@ -766,7 +786,90 @@ public:
         return ::lean::mk_app(mk_constant(get_false_rec_name(), {c_lvl}), c, H);
     }
 
-    expr mk_congr_arg(expr const & f, expr const & H, bool skip_arrow_test) {
+
+
+expr mk_add(expr const & a, expr const & b) {
+    expr const & A = m_ctx.infer(a);
+    level lvl = get_level(A);
+    //    expr const & e = mk_partial_add(A);
+    lean::expr const args[2] = {a, b};
+    auto A_has_add = m_ctx.mk_class_instance(::lean::mk_app(mk_constant(get_has_add_name(), {lvl}), A));
+        if (!A_has_add) {
+            trace_inst_failure(A, "has_add");
+            throw app_builder_exception();
+        }
+	return ::lean::mk_app({mk_constant(get_add_name(), {lvl}), A, *A_has_add, a, b});
+  }
+
+
+  expr mk_mul(expr const & a, expr const & b) {
+    expr const & A = m_ctx.infer(a);
+    expr const & e = mk_partial_mul(A);
+    //return mk_app(get_mul_name(), 2, {a, b});
+    return ::lean::mk_app({e, a, b});
+  }
+
+  expr mk_sub(expr const & a, expr const & b) {
+    expr const & A = m_ctx.infer(a);
+    expr const & e = mk_partial_sub(A);
+    return ::lean::mk_app({e, a, b});
+  }
+
+  expr mk_div(expr const & a, expr const & b) {
+    expr const & A = m_ctx.infer(a);
+    expr const & e = mk_partial_div(A);
+    return ::lean::mk_app({e, a, b});
+  }
+
+  expr mk_neg(expr const & a) {
+    expr const & A = m_ctx.infer(a);
+    level lvl = get_level(A);
+    auto A_has_neg = m_ctx.mk_class_instance(::lean::mk_app(mk_constant(get_has_neg_name(), {lvl}), A));
+    if (!A_has_neg) {
+          trace_inst_failure(A, "has_neg");
+          throw app_builder_exception();
+    }
+
+    return ::lean::mk_app({mk_constant(get_neg_name(), {lvl}), A, *A_has_neg, a});
+  }
+
+  expr mk_cons(expr const & a, expr const & b) {
+    expr const & A = m_ctx.infer(a);
+    level lvl = get_level(A);
+    return ::lean::mk_app({mk_constant(name("list", "cons"), {lvl}), A, a, b});
+  }
+
+  expr mk_nil(expr const & tp) {
+    level lvl = get_level(tp);
+    return ::lean::mk_app(mk_constant(name("list", "nil"), {lvl}), tp);
+  }
+
+  expr mk_pow_nat(expr const & a, expr const & b) {
+    expr const & A = m_ctx.infer(a);
+    level lvl = get_level(A);
+    auto A_has_pow =
+      m_ctx.mk_class_instance(::lean::mk_app(mk_constant(name("has_pow_nat"), {lvl}), A));
+    if (!A_has_pow) {
+      trace_inst_failure(A, "has_pow_nat");
+      throw app_builder_exception();
+    }
+    return ::lean::mk_app({mk_constant(name("pow_nat"), {lvl}), A, *A_has_pow, a, b});
+  }
+
+  expr mk_rat(expr const & inum, expr const & nden) {
+    // assumes inum is an int, nden is a nat
+    expr num = ::lean::mk_app(mk_constant(name("rat", "of_int")), inum);
+    expr den = ::lean::mk_app(mk_constant(name("rat", "of_nat")), nden);
+    return mk_div(num, den);
+  }
+
+  expr mk_rat_pow(expr const & base, expr const & exp) {
+    return ::lean::mk_app({mk_constant(name("rat_pow")), base, exp});
+  }
+  
+  
+
+  expr mk_congr_arg(expr const & f, expr const & H, bool skip_arrow_test) {
         expr eq = m_ctx.relaxed_whnf(m_ctx.infer(H));
         expr pi = m_ctx.relaxed_whnf(m_ctx.infer(f));
         expr A, B, lhs, rhs;
@@ -1115,6 +1218,48 @@ expr mk_ss_elim(type_context & ctx, expr const & A, expr const & ss_inst, expr c
     return app_builder(ctx).mk_ss_elim(A, ss_inst, old_e, new_e);
 }
 
+expr mk_add(type_context & ctx, expr const & a, expr const & b) {
+  return app_builder(ctx).mk_add(expr(a), expr(b));
+}
+
+  expr mk_div(type_context & ctx, expr const & a, expr const & b) {
+    return app_builder(ctx).mk_div(a, b);
+  }
+  
+  expr mk_sub(type_context & ctx, expr const & a, expr const & b) {
+    return app_builder(ctx).mk_sub(a, b);
+  }
+  
+  expr mk_neg(type_context & ctx, expr const & a) {
+    return app_builder(ctx).mk_neg(a);
+  }
+
+  expr mk_cons(type_context & ctx, expr const & a, expr const & b) {
+    return app_builder(ctx).mk_cons(a, b);
+  }
+
+  expr mk_nil(type_context & ctx, expr const & tp) {
+    return app_builder(ctx).mk_nil(tp);
+  }
+
+  expr mk_rat(type_context & ctx, expr const & inum, expr const & nden) {
+    return app_builder(ctx).mk_rat(inum, nden);
+  }
+
+  expr mk_rat_pow(type_context & ctx, expr const & base, expr const & exp) {
+    return app_builder(ctx).mk_rat_pow(base, exp);
+  }
+  
+  expr mk_pow_nat(type_context & ctx, expr const & a, expr const & b) {
+    return app_builder(ctx).mk_pow_nat(a, b);
+  }
+
+  
+expr mk_mul(type_context & ctx, expr const & a, expr const & b) {
+  return app_builder(ctx).mk_mul(expr(a), expr(b));
+}
+
+  
 expr mk_false_rec(type_context & ctx, expr const & c, expr const & H) {
     return app_builder(ctx).mk_false_rec(c, H);
 }
