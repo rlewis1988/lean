@@ -38,6 +38,7 @@ Author: Leonardo de Moura
 #include "library/tactic/hole_command.h"
 #include "library/tactic/backward/init_module.h"
 #include "library/tactic/smt/init_module.h"
+#include "library/tactic/mathematica_tactics.h"
 
 namespace lean {
 void initialize_tactic_module() {
@@ -75,6 +76,7 @@ void initialize_tactic_module() {
     initialize_algebraic_normalizer();
     initialize_hole_command();
     initialize_smt_module();
+    initialize_mathematica_tactic();
 }
 void finalize_tactic_module() {
     finalize_smt_module();
@@ -111,5 +113,6 @@ void finalize_tactic_module() {
     finalize_intro_tactic();
     finalize_tactic_state();
     finalize_kabstract();
+    finalize_mathematica_tactic();
 }
 }
