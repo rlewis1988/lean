@@ -941,15 +941,4 @@ run_command do
 lemma id_locked_eq {α : Type u} (a : α) : id_locked α a = a :=
 rfl
 
--- wolfram
-namespace tactic
-meta constant factor        : expr → tactic pexpr
-meta constant factor_int    : nat → tactic pexpr
-meta constant factor_matrix : expr → tactic expr
-meta constant wl_simplify   : expr → tactic pexpr
-meta constant wl_execute_str : string → tactic pexpr
-meta constant wl_execute_expr : expr → string → tactic pexpr
-meta constant wl_execute_on_expr_using : string → expr → string → tactic pexpr
-meta constant wl_execute_on_expr : string → expr → tactic pexpr
 
-end tactic

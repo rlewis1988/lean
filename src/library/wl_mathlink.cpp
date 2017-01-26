@@ -9,6 +9,7 @@ Author: Robert Y. Lewis
 #include "library/explicit.h"
 #include "library/placeholder.h"
 #include "kernel/abstract.h"
+#include "library/string.h"
 #include <fstream>
 #include <string>
 
@@ -16,184 +17,69 @@ using namespace std;
 
 namespace lean {
 
+
+  MLINK mlp;
+  MLEnvironment mlpenv;
+  
   static const char* fns_path = "~/lean/lean/extras/mathematica/ml_lean_form.m";
-  static const char* key_ex_path = "~/lean/lean/extras/mathematica/temp.txt";
 
-MLINK send_wl_command_without_server(string cmd) {
-  int pid;
+  void initiate_link() {
+    int pid;
+    char * args[5] = {"-linkname", "math -mathlink", "-linkmode", "launch",  NULL};
+    MLEnvironment mlpe = MLInitialize(NULL);
+    if (mlpe==NULL) {throw exception("mathlink failed at 2 : null env");}
+    //std::cout << "made env\n";
+    int open_error;
+    MLINK ml = MLOpenInEnv(mlpe, 4, args, &open_error);
+    if (ml==NULL) {throw exception("mathlink failed at 2 : null ml");}
+    //std::cout << "made link\n";
+    MLActivate(ml);
+    //std::cout << "activated link\n";
+    while (MLReady(ml)) {MLNextPacket(ml); MLNewPacket(ml);}
+    //std::cout << "ready\n";
+    MLPutFunction(ml, "EvaluatePacket", 1);
+    MLPutSymbol(ml, "$ProcessID");
+    MLEndPacket(ml);
+    //std::cout << "ended packet\n";
+    while (MLNextPacket(ml) != RETURNPKT) MLNewPacket(ml);
+    //std::cout << "getting integer\n";
+    MLGetInteger(ml, &pid);
+    //std::cout << "got integer\n";
+    //printf("process id: %d\n", pid);
 
-  MLINK lp;
-  MLEnvironment env;
+    MLPutFunction(ml, "Get", 1);
+    MLPutString(ml, fns_path);
+    MLEndPacket(ml);
+    while (MLNextPacket(ml) != RETURNPKT) MLNewPacket(ml);
+    MLNewPacket(ml);
 
-  /*ifstream infile;
-  infile.open(key_ex_path);
-  char output[9];
-  if (infile.is_open()) {
-    while (!infile.eof()) infile >> output;
+    mlp = ml;
+    mlpenv = mlpe;
   }
-  infile.close();
-  printf("read in: %s\n", output);*/
 
-  char * args[5] = {"-linkname", "math -mathlink", "-linkmode", "launch",  NULL};
-  env=MLInitialize(NULL);
-  if (env==NULL) {printf("null env\n"); throw exception("mathlink failed at 2 : null env");}
-  int open_error;
-  lp = MLOpenInEnv(env, 4, args, &open_error);
-  if (lp==NULL) {printf("null lp\n"); throw exception("mathlink failed at 2 : null lp");}
-  MLActivate(lp);
-
-  
-  while (MLReady(lp)) {MLNextPacket(lp); MLNewPacket(lp);}
-
-  MLPutFunction(lp, "EvaluatePacket", 1);
-  MLPutSymbol(lp, "$ProcessID");
-  MLEndPacket(lp);
-  while (MLNextPacket(lp) != RETURNPKT) MLNewPacket(lp);
-  MLGetInteger(lp, &pid);
-  printf("process id: %d\n", pid);
-
-
-  MLPutFunction(lp, "Get", 1);
-  MLPutString(lp, fns_path);
-  MLEndPacket(lp);
-  while (MLNextPacket(lp) != RETURNPKT) MLNewPacket(lp);
-  MLNewPacket(lp);
-  
-  MLPutFunction(lp, "EvaluatePacket", 1);
-  MLPutFunction(lp, "ToExpression", 1);
-  MLPutString(lp, cmd.c_str());
-  MLEndPacket(lp);
-  while(MLNextPacket(lp) != RETURNPKT) MLNewPacket(lp);
-
-  return lp;
-  
-}
-  
-  /* set_wl_command must always be followed by reset_link */
-MLINK send_wl_command(string cmd) {
-  return send_wl_command_without_server(cmd); // short-circuit the kernel launcher
-  ifstream infile;
-  infile.open(fns_path);
-  char output[9];
-  if (infile.is_open()) {
-    while (!infile.eof()) infile >> output;
+  void send_wl_command(string cmd) {
+    //std::cout << "send wl command\n";
+    if (mlp==nullptr) {
+      //std::cout << "initiate link\n";
+      initiate_link();
+    }
+    if (mlp == nullptr) {
+      //std::cout << "still null??\n";
+    }
+    //std::cout << "put function\n";
+    MLPutFunction(mlp, "EvaluatePacket", 1);
+    MLPutFunction(mlp, "ToExpression", 1);
+    //std::cout << "putting string: " << cmd.c_str() << "\n";
+    MLPutString(mlp, cmd.c_str());
+    MLEndPacket(mlp);
+    //std::cout << "ended packet\n";
+    //std::cout << MLNextPacket(mlp);
+    while (MLNextPacket(mlp) != RETURNPKT) MLNewPacket(mlp);
+    //std::cout << "finished send command\n";
   }
-  infile.close();
-  printf("read in: %s\n", output);
 
-  if (output == "---------" || output == "*********") {
-    std::cout << "cmp succ\n";
-    return send_wl_command_without_server(cmd);
-  }
-  
-  int pid;
-  MLINK lp;
-  //MLEnvironment env;
 
-  char * args[5] = {"-linkname", output, "-linkmode", "connect",  NULL};
-  //env=MLInitialize(NULL);
-  //if (env==NULL) {printf("null env\n"); throw exception("mathlink failed: null env");}
-  //int open_error;
-  lp = MLOpen( 4, args);
-  if (lp==NULL) {printf("null lp\n"); throw exception("mathlink failed: null link");}
-  if (!MLActivate(lp)) {
-    MLClose(lp);  
-    ofstream outfile;
-    outfile.open(key_ex_path);
-    outfile << "---------";
-    outfile.close();
-    return send_wl_command_without_server(cmd);
-  }
-  
-  ofstream outfile;
-  outfile.open(key_ex_path);
-  outfile << "*********";
-  outfile.close();
-  
-  while (MLReady(lp)) {MLNextPacket(lp); MLNewPacket(lp);}
-
-  MLPutFunction(lp, "EvaluatePacket", 1);
-  MLPutSymbol(lp, "$ProcessID");
-  MLEndPacket(lp);
-  while (MLNextPacket(lp) != RETURNPKT) MLNewPacket(lp);
-  MLGetInteger(lp, &pid);
-  printf("process id: %d\n", pid);
-  
-  MLPutFunction(lp, "Get", 1);
-  MLPutString(lp, fns_path);
-  MLEndPacket(lp);
-  while (MLNextPacket(lp) != RETURNPKT) MLNewPacket(lp);
-  MLNewPacket(lp);
-
-  MLPutFunction(lp, "EvaluatePacket", 1);
-  MLPutFunction(lp, "ToExpression", 1);
-  MLPutString(lp, cmd.c_str());
-  MLEndPacket(lp);
-  while(MLNextPacket(lp) != RETURNPKT) MLNewPacket(lp);
-  
-  return lp;
-}
-
-void reset_link(MLINK lp) {
-  //std::cout << "bench 0\n";
-  ifstream infile;
-  infile.open(key_ex_path);
-  char output[9];
-  if (infile.is_open()) {
-    while (!infile.eof()) infile >> output;
-  }
-  infile.close();
-  if (output == "---------") {
-    MLClose(lp);
-    return;
-  }
-  
-  MLNewPacket(lp);
-
-  while (MLReady(lp)) {MLNextPacket(lp); MLNewPacket(lp);}
-  
-  MLPutFunction(lp, "EvaluatePacket", 1);
-  MLPutFunction(lp, "ToExpression", 1);
-  MLPutString(lp, "newParentLink=LinkCreate[]");
-  MLEndPacket(lp);
-  //std::cout << "bench 0.5\n";
-  int pkt;
-  while ((pkt=MLNextPacket(lp)) && pkt != RETURNPKT) MLNewPacket(lp);
-  if (!pkt) {
-    std::cout << "have error!\n";
-    MLClearError(lp);
-  }
-  MLNewPacket(lp);
-  //std::cout << "bench 1\n";
-
-  MLPutFunction(lp, "EvaluatePacket", 1);
-  MLPutFunction(lp, "First", 1);
-  MLPutSymbol(lp, "newParentLink");
-  MLEndPacket(lp);
-  while (MLNextPacket(lp) != RETURNPKT) MLNewPacket(lp);
-  const char* link_name;
-  MLGetString(lp, &link_name);
-  //std::cout << "bench 2 " << link_name << "\n";
-  
-  MLPutFunction(lp, "EvaluatePacket", 1);
-  MLPutFunction(lp, "ToExpression", 1);
-  MLPutString(lp,
-    "MathLink`AddSharingLink[newParentLink, MathLink`SendInputNamePacket -> True, MathLink`Terminating -> True]; MathLink`SetTerminating[$ParentLink, False]");
-  MLEndPacket(lp);
-  // while (MLNextPacket(lp) != RETURNPKT) MLNewPacket(lp);
-  MLNewPacket(lp);
-  MLClose(lp);
-  //std::cout << "bench 3\n";
-  
-  printf("link name: %s\n", link_name);
-  ofstream outfile;
-  outfile.open(key_ex_path);
-  outfile << link_name;
-  outfile.close();
-  //std::cout << "bench 4\n";
-}
-
-  typedef std::function<expr(expr *)> expr_fn;
+  /* typedef std::function<expr(expr *)> expr_fn;
   typedef std::pair<unsigned, expr_fn> expr_fn_ar;
   typedef std::unordered_map<string, expr> const_map;
 
@@ -352,87 +238,113 @@ void reset_link(MLINK lp) {
 	return mk_app(newargs); // mk_as_is?
       };
     }
-  }
+    }*/
 
-  expr pnum_of_int(int n) {
-    if (n < 0) return mk_app(mk_constant(get_neg_name()), pnum_of_int(-n));
-    if (n == 0) return mk_constant(get_zero_name());
+  /*expr pnum_of_int(int n) {
+    if (n < 0) return mk_app(mk_constant(name("signed_num", "neg_succ")), pnum_of_int(-(n+1)));
+    if (n == 0) return mk_constant(name("signed_num", "zero"));
     if (n == 1) return mk_constant(get_one_name());
     if (n%2 == 0) return mk_app(mk_constant(get_bit0_name()), pnum_of_int(n/2));
     else return mk_app(mk_constant(get_bit1_name()), pnum_of_int(n/2));
+  }*/
+
+  expr pos_num_of_int(int n) {
+    if (n == 1)   return mk_constant(name("pos_num", "one"));
+    if (n%2 == 0) return mk_app(mk_constant(name("pos_num", "bit0")), pos_num_of_int(n/2));
+    else          return mk_app(mk_constant(name("pos_num", "bit1")), pos_num_of_int(n/2));
   }
   
-  expr expr_from_wl_link(const_map cm, MLINK lp) {
-    auto tp = MLGetType(lp);
-    std::cout << "tp: " << tp << "\n";
+  expr num_of_int(int n) {
+    if (n == 0) return mk_constant(name("num", "zero"));
+    else        return mk_app(mk_constant(name("num", "pos")), pos_num_of_int(n));
+  }
+
+  expr signed_num_of_int(int n) {
+    if (n < 0) return mk_app(mk_constant(name("signed_num", "neg_succ")), num_of_int(-(n+1)));
+    else       return mk_app(mk_constant(name("signed_num", "pos")), num_of_int(n));
+  }
+  
+  expr lean_string_of_string(const char * s) {
+    expr e = from_string(s);
+    return mk_app(mk_constant(name("mmexpr", "str")), e);
+  }
+
+  expr lean_int_of_int(int s) {
+    expr e = signed_num_of_int(s);
+    return mk_app(mk_constant(name("mmexpr", "mint")), e);
+  }
+
+  expr lean_symbol_of_string(const char * s) {
+    expr e = from_string(s);
+    return mk_app(mk_constant(name("mmexpr", "sym")), e);
+  }
+
+  expr lean_list_of_expr_buffer(buffer<expr> b) {
+    expr l = mk_app({mk_constant(get_list_nil_name(), {mk_succ(mk_level_zero())}), mk_constant(name("mmexpr"))});
+    for (int i = b.size()-1; i >= 0; i--)
+      l = mk_app({mk_constant(get_list_cons_name(), {mk_succ(mk_level_zero())}), mk_constant(name("mmexpr")), b[i], l});
+    return l;
+  }
+
+  expr lean_app_of_expr_of_list(expr hd, expr args) {
+    return mk_app(mk_constant(name("mmexpr", "app")), hd, args);
+  }
+  
+  expr expr_from_wl_link() {
+    //while (MLNextPacket(mlp) != RETURNPKT) MLNewPacket(mlp);
+    auto tp = MLGetType(mlp);
+    // std::cout << "tp: " << tp << "\n";
     switch (tp) {
     case MLTKSTR: { // Return a string wrapped in a local variable. This should be unpacked immediately
       const char *s;
-      MLGetString(lp, &s); // need to release?
-      std::cout << "link gave string: " << s << " in map? " << cm.count(s) << "\n";
-      if (cm.count(s)) return cm[s];
-      else return mk_local(name(s), mk_metavar(name("_"+(std::string)s +"_m"), mk_sort(mk_meta_univ(name("_"+(std::string)s+"_u")))));
+      MLGetString(mlp, &s); // need to release?
+      return lean_string_of_string(s);
       break;
     }
     case MLTKINT: {
       int s;
-      MLGetInteger(lp, &s);
-      return pnum_of_int(s);
+      MLGetInteger(mlp, &s);
+      return lean_int_of_int(s);
       break;
     }
     case MLTKFUNC: {
       int len;
-      MLGetArgCount(lp, &len);
+      MLGetArgCount(mlp, &len);
       const char *hd;
-      MLGetSymbol(lp, &hd); // need to release?
-      std::cout << "link gave func: " << hd << len << "\n";
+      MLGetSymbol(mlp, &hd); // COULD THIS BE WRONG?
       buffer<expr> args = buffer<expr>();
       for (int i = 0; i < len; i++) {
-	//std::cout << "getting arg " << i << " for " << hd << "\n";
-	args.push_back(expr_from_wl_link(cm, lp));
-	//std::cout << "got arg " << i << " for " << hd << "\n";
+	args.push_back(expr_from_wl_link());
       }
-      //std::cout << "got arg data for " << hd << "\n";
-      if (cm.count(hd)) {
-	//std::cout << "in table! " << hd << "\n";
-	args.insert(0, cm[hd]);
-	return mk_app(args);
-      } else {
-	return mk_translate_constructor(hd, len)(args.data());
-      }
+      return lean_app_of_expr_of_list(lean_symbol_of_string(hd), lean_list_of_expr_buffer(args));
       break;
     }
     case MLTKREAL: {
       double d;
-      MLGetReal(lp, &d);
-      //std::cout << "link gave real: " << d << "\n";
+      MLGetReal(mlp, &d);
       throw exception("cannot handle reals from mathematica");
       break;
     }
     case MLTKSYM: {
       const char *s;
-      MLGetSymbol(lp, &s); // need to release?
-      //std::cout << "link gave symbol: " << s << " in map? " << cm.count(s) << "\n";
-      //if (cm.count(s)) return cm[s];
-      //else return mk_local(name(s), expr());//mk_explicit(mk_constant(name(s), {mk_level_placeholder()}));
-      return mk_translate_constant(s);
+      MLGetSymbol(mlp, &s);
+      return lean_symbol_of_string(s);
       break;
     }
     default:
-      //std::cout << "link gave ???\n";
       throw exception("MathLink type not understood");
     }
     // error
   }
 
-  expr wl_process_cmd(const_map cm, string cmd) {
-    std::cout << "starting process_cmd\n";
-    MLINK lp = send_wl_command(cmd);
-    std::cout << "made link!\n";
-    expr e = expr_from_wl_link(cm, lp);
-    std::cout << "got expr: " << e << "\n";
-    reset_link(lp);
-    std::cout << "reset link!\n";
+  expr wl_process_cmd(string cmd) {
+    //std::cout << "starting process_cmd\nProcessing: " << cmd << "\n\n";
+    send_wl_command(cmd);
+    //std::cout << "sent command!\n";
+    expr e = expr_from_wl_link();
+    //std::cout << "got expr: " << e << "\n";
+    //reset_link(mlp);
+    //std::cout << "reset link!\n";
     return e;
   }
   

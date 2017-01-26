@@ -99,7 +99,7 @@
                     :name "lean-server"
                     :buffer (format " *lean-server (%s)*" project-dir)
                     :command `(,(lean-get-executable lean-executable-name)
-                               "--server"
+                               "--server -j0"
                                ,(format "*%s*" project-dir))
                     :coding 'utf-8
                     :noquery t
