@@ -1095,15 +1095,3 @@ meta instance : monad task :=
  id_map := undefined, pure_bind := undefined, bind_assoc := undefined,
  bind_pure_comp_eq_map := undefined}
 
- -- wolfram
-namespace tactic
-meta constant factor        : expr → tactic pexpr
-meta constant factor_int    : nat → tactic pexpr
-meta constant factor_matrix : expr → tactic expr
-meta constant wl_simplify   : expr → tactic pexpr
-meta constant wl_execute_str : string → tactic pexpr
-meta constant wl_execute_expr : expr → string → tactic pexpr
-meta constant wl_execute_on_expr_using : string → expr → string → tactic pexpr
-meta constant wl_execute_on_expr : string → expr → tactic pexpr
-
-end tactic

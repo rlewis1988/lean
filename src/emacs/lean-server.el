@@ -111,7 +111,7 @@ least the following keys:
          ; https://debbugs.gnu.org/cgi/bugreport.cgi?bug=24531
          (process-connection-type nil)
          (cmd `(,(lean-get-executable lean-executable-name)
-                "--server"
+                "--server -j0"
                 ,(format "-M%i" lean-memory-limit)
                 ,(format "-T%i" lean-timeout-limit)
                 ,@lean-extra-arguments
