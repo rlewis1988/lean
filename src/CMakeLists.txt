@@ -77,7 +77,9 @@ if((${CYGWIN} EQUAL "1") OR (${CMAKE_SYSTEM_NAME} MATCHES "Windows"))
   set(EXTRA_UTIL_LIBS ${EXTRA_UTIL_LIBS} -lpsapi)
 endif()
 
-set(LEAN_EXTRA_LINKER_FLAGS "-L/usr/local/Wolfram/Mathematica/11.0/SystemFiles/Links/MathLink/DeveloperKit/Linux-x86-64/CompilerAdditions ${LEAN_EXTRA_LINKER_FLAGS} ")
+set(LEAN_EXTRA_LINKER_FLAGS "-L/Applications/Mathematica.app/Contents/SystemFiles/Links/MathLink/DeveloperKit/MacOSX-x86-64/CompilerAdditions -framework Foundation ${LEAN_EXTRA_LINKER_FLAGS} ")
+
+set (LEAN_EXTRA_CXX_FLAGS "${LEAN_EXTRA_CXX_FLAGS} -mmacosx-version-min=10.9")
 
 if("${CYGWIN}" EQUAL "1")
   set(LEAN_EXTRA_CXX_FLAGS "${LEAN_EXTRA_CXX_FLAGS} -D LEAN_CYGWIN")
@@ -118,7 +120,7 @@ endif()
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
 # Initialize CXXFLAGS.
-set(CMAKE_CXX_FLAGS                "-Wall -Wextra -std=c++11 ${LEAN_EXTRA_CXX_FLAGS} -DLEAN_BUILD_TYPE=\"${CMAKE_BUILD_TYPE}\"")
+set(CMAKE_CXX_FLAGS                "-Wall -Wextra -std=c++11 ${LEAN_EXTRA_CXX_FLAGS} ${LEAN_EXTRA_LINKER_FLAGS} -DLEAN_BUILD_TYPE=\"${CMAKE_BUILD_TYPE}\"")
 set(CMAKE_CXX_FLAGS_DEBUG          "-g3 -DLEAN_DEBUG -DLEAN_TRACE")
 set(CMAKE_CXX_FLAGS_MINSIZEREL     "-Os -DNDEBUG")
 set(CMAKE_CXX_FLAGS_RELEASE        "-O3 -DNDEBUG")
@@ -223,7 +225,7 @@ else()
     set(EXTRA_LIBS ${EXTRA_LIBS} ${GMP_LIBRARIES})
 endif()
 
-set(EXTRA_LIBS ${EXTRA_LIBS} "ML64i4" "uuid" "dl" "m" "rt")
+set(EXTRA_LIBS ${EXTRA_LIBS} "MLi4") # "uuid" "dl" "m" "rt")
 
 # DL
 if (EMSCRIPTEN)

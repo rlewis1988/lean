@@ -20,17 +20,20 @@ namespace lean {
 
   MLINK mlp;
   MLEnvironment mlpenv;
+
+  static string math_path = "/Applications/Mathematica.app/Contents/MacOS/MathKernel --mathlink";
   
   static const char* fns_path = "~/lean/lean/extras/mathematica/ml_lean_form.m";
 
   void initiate_link() {
     int pid;
-    char * args[5] = {"-linkname", "math -mathlink", "-linkmode", "launch",  NULL};
+    char * args[5] = {"-linkname", "'/Applications/Mathematica.app/Contents/MacOS/MathKernel' -mathlink", "-linkmode", "launch",  NULL};
     MLEnvironment mlpe = MLInitialize(NULL);
     if (mlpe==NULL) {throw exception("mathlink failed at 2 : null env");}
     //std::cout << "made env\n";
     int open_error;
     MLINK ml = MLOpenInEnv(mlpe, 4, args, &open_error);
+    if (&open_error) std::cout << "open error: " << open_error << "\n";
     if (ml==NULL) {throw exception("mathlink failed at 2 : null ml");}
     //std::cout << "made link\n";
     MLActivate(ml);
