@@ -51,7 +51,8 @@ ArithConvert[f_[args__]] := Apply[f, Map[ArithConvert, {args}]];
 ArithConvert[x_] := x;
 
 ListConvert[List[]] := LeanListNil;
-ListConvert[List[a_, x___]] := LeanListCons[a, ListConvert[List[x]]];
+ListConvert[List[a_, x___]] := LeanListCons[ListConvert[a], ListConvert[List[x]]];
+ListConvert[f_[args__]] := Apply[ListConvert[f],Map[ListConvert, List[args]]]
 ListConvert[e_] := e;
 
 
@@ -176,6 +177,11 @@ LeanForm[LeanApp[
      LeanApp[LeanConst[LeanName["has_ge", "ge"], _], _], _], x_], y_],
    v_] := Inactive[GreaterEqual][LeanForm[x, v], LeanForm[y, v]]
 
+LeanForm[LeanApp[
+   LeanApp[LeanApp[LeanConst[LeanName["eq"], _], _], x_], y_],
+   v_] := Inactive[Equal][LeanForm[x, v], LeanForm[y, v]]
+   
+LeanForm[LeanConst[LeanName["true"], _], v_] := True
 
 LeanForm[LeanSort[l_], v_] := LeanSort[l]
 
