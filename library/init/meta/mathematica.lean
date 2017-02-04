@@ -1,3 +1,10 @@
+
+/-
+Copyright (c) 2017 Robert Y. Lewis. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+Author: Robert Y. Lewis
+-/
+
 import .tactic
 open expr string level name binder_info
 
@@ -349,21 +356,41 @@ meta instance mmexpr_has_to_pexpr_list_cons (h t : mmexpr) [mmexpr_has_to_pexpr 
 ⟨_, `(list.cons %%(pexpr_of_mmexpr h) %%(pexpr_of_mmexpr t))⟩
 
 -- FILL IN FUNCTION TRANSLATION
-
-/-meta def abstract_mmexpr_symbol (s : string) (new_s : mmexpr) : mmexpr → mmexpr
+@[reducible]
+meta def abstract_mmexpr_symbol (s : string) (new_s : mmexpr) : mmexpr → mmexpr
 | (app e l) := app (abstract_mmexpr_symbol e) (list.map abstract_mmexpr_symbol l)
 | (sym t)   := if s = t then new_s else sym t
 | (str t)   := str t
 | (mint i)  := mint i
 
-meta instance mmexpr_has_to_pexpr_function (s : string) (m : mmexpr) [h : mmexpr_has_to_pexpr (abstract_mmexpr_symbol s (app (sym "LeanLocal") [str "MMVAR_s", str "MMVAR_s", (sym "BinderInfoDefault"), app (sym "LeanConst") [str "nat", sym "LeanLevelListNil"]]) m)] : mmexpr_has_to_pexpr (app (sym "Function") [sym s, m]) :=
-⟨_, `(λ MMVAR_s, %%(@pexpr_of_mmexpr _ h))⟩
---⟨_, expr.abstract_local (@expr_of_mmexpr _ h) s⟩
+/-meta instance abstract_has_to_pexpr (s : string) (news : mmexpr) [mmexpr_has_to_pexpr news] : Π (m : mmexpr) [mmexpr_has_to_pexpr m], mmexpr_has_to_pexpr (abstract_mmexpr_symbol s news m)
+| (app e l) h := by apply_instance
+| (sym t) h := by apply_instance 
+| (str t) h := by apply_instance
+| (mint i) h := by apply_instance-/
 
+@[reducible]
+meta def mk_name_mmexpr (s : string) : mmexpr := app (sym "LeanNameMkString") [str s, sym "LeanNameAnonymous"]
+
+@[reducible]
+meta def mk_local_mmexpr (s : string) : mmexpr := app (sym "LeanLocal") [mk_name_mmexpr s, mk_name_mmexpr s, sym "BinderInfoDefault", app (sym "LeanSort") [sym "LeanZeroLevel"]]
+
+meta instance mk_local_has_to_pexpr (s : string) : mmexpr_has_to_pexpr (mk_local_mmexpr s) := 
+by apply_instance
+
+
+--meta instance mmexpr_has_to_pexpr_function (s : string) (m : mmexpr) [mmexpr_has_to_pexpr m] : mmexpr_has_to_pexpr (app (sym "Function") [sym s, m]) :=
+meta instance mmexpr_has_to_pexpr_function (s : string) (m : mmexpr) [mmexpr_has_to_pexpr (abstract_mmexpr_symbol s (mk_local_mmexpr s) m)] : mmexpr_has_to_pexpr (app (sym "Function") [sym s, m]) :=
+⟨_, mk_lambda (mk_local_const s) (pexpr_of_mmexpr (abstract_mmexpr_symbol s (mk_local_mmexpr s) m))⟩
+
+--meta instance mmexpr_has_to_pexpr_function (s : string) (m : mmexpr) [h : mmexpr_has_to_pexpr (abstract_mmexpr_symbol s (app (sym "LeanLocal") [str "MMVAR_s", str "MMVAR_s", (sym "BinderInfoDefault"), app (sym "LeanConst") [str "nat", sym "LeanLevelListNil"]]) m)] : mmexpr_has_to_pexpr (app (sym "Function") [sym s, m]) :=
+--⟨_, `(λ MMVAR_s, %%(@pexpr_of_mmexpr _ h))⟩
+--⟨_, expr.abstract_local (@expr_of_mmexpr _ h) s⟩
+/-
 meta example : abstract_mmexpr_symbol "x" (sym "y") (app (sym "Plus") [sym "x", sym "x"]) = app (sym "Plus") [sym "y", sym "y"] := begin
 
 end
-
+-
 vm_eval abstract_mmexpr_symbol "x"  (app (sym "LeanLocal") [str "MMVAR_s", str "MMVAR_s", (sym "BinderInfoDefault"), app (sym "LeanConst") [str "nat", sym "LeanLevelListNil"]]) (app (sym "Plus") [sym "x", sym "x"])
 
 example : true = true := by do
@@ -376,6 +403,19 @@ example : true = true := by do
   ex''' ← to_expr `((%%ex'' : ℕ → ℕ)),
   trace ex''',
   reflexivity
+-/
+
+--@[reducible] meta def add_fn : mmexpr := app (sym "Function") [sym "x", app (sym "LeanAdd") [sym "x", sym "x"]]
+
+--set_option trace.class_instances true
+--eval pexpr_of_mmexpr  add_fn
+
+/-meta example : (abstract_mmexpr_symbol "x" (mk_local_mmexpr "x") (app (sym "LeanAdd") [sym "x", sym "x"])) = app (sym "LeanAdd") [mk_local_mmexpr "x", mk_local_mmexpr "x"] := rfl
+
+meta example : abstract_mmexpr_symbol "x" (mk_local_mmexpr "x") (sym "x") = mk_local_mmexpr "x" := rfl
+meta example (k) : abstract_mmexpr_symbol "x" (mk_local_mmexpr "x") (mint k) = mint k := rfl
+meta example : abstract_mmexpr_symbol "x" (mk_local_mmexpr "x") (app (sym "hi") []) = app (sym "hi") [] := rfl
+
 -/
 
 meta instance mmexpr_has_to_pexpr_int (i : signed_num) : mmexpr_has_to_pexpr (mint i) :=
@@ -401,5 +441,12 @@ meta def run_mm_command_on_expr_using (cmd : string → string) (e : expr) (path
  trace "rval: ", trace rval,
  pexe ← to_expr `(pexpr_of_mmexpr %%rval),
  eval_expr pexpr pexe
+
+meta def run_mm_command_on_exprs_using (cmd : string → string → string) (e1 e2 : expr) (path : string) : tactic pexpr := do
+ rval ← wl_execute_str ("Get[\"" ++ path ++ "\"]; " ++ (cmd (mathematica_form_of_expr e1) (mathematica_form_of_expr e2))),
+ trace "rval: ", trace rval,
+ pexe ← to_expr `(pexpr_of_mmexpr %%rval),
+ eval_expr pexpr pexe
+
 
 end tactic
