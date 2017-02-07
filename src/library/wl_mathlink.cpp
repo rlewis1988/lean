@@ -280,9 +280,9 @@ namespace lean {
   }
 
   expr lean_list_of_expr_buffer(buffer<expr> b) {
-    expr l = mk_app({mk_constant(get_list_nil_name(), {mk_succ(mk_level_zero())}), mk_constant(name("mmexpr"))});
+    expr l = mk_app({mk_constant(get_list_nil_name(), {(mk_level_zero())}), mk_constant(name("mmexpr"))});
     for (int i = b.size()-1; i >= 0; i--)
-      l = mk_app({mk_constant(get_list_cons_name(), {mk_succ(mk_level_zero())}), mk_constant(name("mmexpr")), b[i], l});
+      l = mk_app({mk_constant(get_list_cons_name(), {(mk_level_zero())}), mk_constant(name("mmexpr")), b[i], l});
     return l;
   }
 
