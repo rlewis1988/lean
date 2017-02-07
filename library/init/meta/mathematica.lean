@@ -241,6 +241,9 @@ meta class mmexpr_has_to_name (m : mmexpr) :=
 meta class mmexpr_list_has_to_pexpr_list (l : list mmexpr) :=
 (to_pexpr_list : list pexpr)
 
+meta class mmexpr_has_to_abstractable (m : mmexpr) :=
+(to_abstractable : pexpr)
+
 -- Extractors
 meta def pexpr_of_mmexpr (m : mmexpr) [mmexpr_has_to_pexpr m] : pexpr :=
 mmexpr_has_to_pexpr.to_pexpr m
@@ -262,6 +265,9 @@ mmexpr_has_to_name.to_name m
 
 meta def pexpr_list_of_mmexpr_list (l : list mmexpr) [mmexpr_list_has_to_pexpr_list l] :=
 mmexpr_list_has_to_pexpr_list.to_pexpr_list l
+
+meta def abstractable_of_mmexpr (m : mmexpr) [mmexpr_has_to_abstractable m] :=
+mmexpr_has_to_abstractable m
 
 -- Translations to binder_info
 meta instance mmexpr_binder_info_default : mmexpr_has_to_binder_info (sym "BinderInfoDefault") :=
@@ -364,6 +370,12 @@ meta instance mmexpr_has_to_expr_pi (nm bi tp bd : mmexpr) [mmexpr_has_to_name n
      mmexpr_has_to_expr (app (sym "LeanPi") [nm, bi, tp, bd]) :=
 ⟨_, pi (name_of_mmexpr nm) (binder_info_of_mmexpr bi) (expr_of_mmexpr tp) (expr_of_mmexpr bd)⟩
 
+-- Translation to abstractable
+-- This is used for function abstraction
+@[priority 1]
+meta instance mmexpr_has_to_pexpr_sym (s : string) : mmexpr_has_to_pexpr (sym s) :=
+⟨_, mk_local_const s⟩
+
 -- Translations to pexpr
 -- For the most part, these are how we assign Lean semantics to Mathematica expressions.
 meta instance mmexpr_has_to_pexpr_of_has_to_expr (m : mmexpr) [mmexpr_has_to_expr m] : mmexpr_has_to_pexpr m :=
@@ -427,9 +439,12 @@ meta instance mk_local_has_to_pexpr (s : string) : mmexpr_has_to_pexpr (mk_local
 by apply_instance
 
 
+meta instance mmexpr_has_to_pexpr_function (s : string) (m : mmexpr) [mmexpr_has_to_pexpr  m] : mmexpr_has_to_pexpr (app (sym "Function") [sym s, m]) :=
+⟨_, mk_lambda (mk_local_const s) (pexpr_of_mmexpr m)⟩
+
 --meta instance mmexpr_has_to_pexpr_function (s : string) (m : mmexpr) [mmexpr_has_to_pexpr m] : mmexpr_has_to_pexpr (app (sym "Function") [sym s, m]) :=
-meta instance mmexpr_has_to_pexpr_function (s : string) (m : mmexpr) [mmexpr_has_to_pexpr (abstract_mmexpr_symbol s (mk_local_mmexpr s) m)] : mmexpr_has_to_pexpr (app (sym "Function") [sym s, m]) :=
-⟨_, mk_lambda (mk_local_const s) (pexpr_of_mmexpr (abstract_mmexpr_symbol s (mk_local_mmexpr s) m))⟩
+/-meta instance mmexpr_has_to_pexpr_function (s : string) (m : mmexpr) [mmexpr_has_to_pexpr (abstract_mmexpr_symbol s (mk_local_mmexpr s) m)] : mmexpr_has_to_pexpr (app (sym "Function") [sym s, m]) :=
+⟨_, mk_lambda (mk_local_const s) (pexpr_of_mmexpr (abstract_mmexpr_symbol s (mk_local_mmexpr s) m))⟩-/
 
 --meta instance mmexpr_has_to_pexpr_function (s : string) (m : mmexpr) [h : mmexpr_has_to_pexpr (abstract_mmexpr_symbol s (app (sym "LeanLocal") [str "MMVAR_s", str "MMVAR_s", (sym "BinderInfoDefault"), app (sym "LeanConst") [str "nat", sym "LeanLevelListNil"]]) m)] : mmexpr_has_to_pexpr (app (sym "Function") [sym s, m]) :=
 --⟨_, `(λ MMVAR_s, %%(@pexpr_of_mmexpr _ h))⟩
@@ -501,7 +516,6 @@ do
  eval_expr pexpr pexe
 
 end tactic
-
 exit
 
 open tactic
@@ -509,4 +523,11 @@ set_option class.instance_max_depth 64
 example (a b c : ℕ) : true = true := by do
 e ← to_expr `([a, b, c]) >>= run_mm_command_on_expr (λ s, s++" // LeanForm // Activate"),
 to_expr e >>= trace,
+reflexivity
+
+example : true = true := by do
+e ← wl_execute_str "Function[a, a+a]",
+pexe ← to_expr `(pexpr_of_mmexpr %%e),
+pxr ← eval_expr pexpr pexe,
+to_expr `((%%pxr : ℕ → ℕ)) >>= trace,
 reflexivity
