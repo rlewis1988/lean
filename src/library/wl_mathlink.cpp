@@ -33,7 +33,6 @@ namespace lean {
     //std::cout << "made env\n";
     int open_error;
     MLINK ml = MLOpenInEnv(mlpe, 4, args, &open_error);
-    if (&open_error) std::cout << "open error: " << open_error << "\n";
     if (ml==NULL) {throw exception("mathlink failed at 2 : null ml");}
     //std::cout << "made link\n";
     MLActivate(ml);
