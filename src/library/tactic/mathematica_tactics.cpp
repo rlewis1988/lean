@@ -4,19 +4,9 @@ Released under Apache 2.0 license as described in the file LICENSE.
 
 Author: Robert Y. Lewis
 */
-#include "library/vm/vm_name.h"
 #include "library/vm/vm_expr.h"
 #include "library/tactic/tactic_state.h"
-#include "library/app_builder.h"
-#include "library/util.h"
-#include "library/type_context.h"
-#include "library/trace.h"
-#include "library/constants.h"
-#include "library/vm/vm_nat.h"
 #include "library/vm/vm_string.h"
-#include "library/norm_num.h"
-#include <string>
-#include "library/tactic/elaborate.h"
 #include "library/wl_mathlink.h"
 #include "library/tactic/mathematica_tactics.h"
 
