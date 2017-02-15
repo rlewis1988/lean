@@ -74,7 +74,6 @@ class norm_num_context {
     expr mk_nonzero_prf(expr const & e);
     pair<expr, expr> get_type_and_arg_of_neg(expr const &);
 
-    bool is_numeral(expr const & e) const;
     bool is_neg_app(expr const &) const;
     bool is_div(expr const &) const;
     bool is_nat_const(expr const &) const;
@@ -83,7 +82,7 @@ class norm_num_context {
     expr mk_norm_eq(expr const &, expr const &);
 public:
     norm_num_context(type_context & ctx): m_ctx(ctx), m_ainst(ctx) {}
-
+    bool is_numeral(expr const & e) const;
     pair<expr, expr> mk_norm(expr const & e);
 };
 

@@ -5,7 +5,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Author: Robert Y. Lewis
 -/
 
-import .tactic
+import .tactic .rb_map
 open expr string level name binder_info
 
 -- this is local to avoid conflicts with library_dev
@@ -36,17 +36,6 @@ meta def expand_let : expr → expr
 | (elet nm tp val bod) := expr.replace bod (λ e n, match e with |var n := some val | _ := none end)
 | e := e
 
--- this isn't used and probably duplicates code in expr
-meta def expand_let_rec : expr → expr
-| (elet nm tp val bod) := expr.replace (expand_let_rec bod) (λ e n, match e with |var n := some val | _ := none end)
-| (mvar nm tp) := mvar nm (expand_let_rec tp)
-| (local_const nm ppnm bi tp) := local_const nm ppnm bi (expand_let_rec tp)
-| (app f e) := app (expand_let_rec f) (expand_let_rec e)
-| (lam nm bi tp bod) := lam nm bi (expand_let_rec tp) (expand_let_rec bod)
-| (pi nm bi tp bod) := pi nm bi (expand_let_rec tp) (expand_let_rec bod)
-| e := e
-
-
 /-
   The following definitions are used to reflect Lean syntax into Mathematica. We reflect the types
    - name
@@ -67,7 +56,6 @@ meta def mathematica_form_of_lvl : level → string
 | (level.max l1 l2) := "LeanLevelMax[" ++ mathematica_form_of_lvl l1 ++ ", " ++ mathematica_form_of_lvl l2 ++ "]"
 | (imax l1 l2)      := "LeanLevelIMax[" ++ mathematica_form_of_lvl l1 ++ ", " ++ mathematica_form_of_lvl l2 ++ "]"
 | (param nm)        := "LeanLevelParam[̈" ++ mathematica_form_of_name nm ++ "]"
-| (global nm)       := "LeanLevelGlobal[" ++ mathematica_form_of_name nm ++ "]"
 | (mvar nm)         := "LeanLevelMeta[" ++ mathematica_form_of_name nm ++ "]"
 
 meta def mathematica_form_of_lvl_list : list level → string
@@ -137,14 +125,6 @@ meta def pexpr_of_signed_num : signed_num → pexpr
 | (signed_num.pos k) := pexpr_of_num k
 | (signed_num.neg_succ k) := `(-(%%(pexpr_of_num (k+1))))
 
-meta def pexpr_of_char : char → pexpr
-| (fin.mk k l) := `((fin.mk %%(pexpr_of_nat k) dec_trivial : char))
-
-meta def pexpr_of_string : string → pexpr
-| [] := `(list.nil)
-| (h :: t) := `(list.cons %%(pexpr_of_char h) %%(pexpr_of_string t))
-
-
 /-
    The type mmexpr reflects Mathematica expression syntax.
    Until Lean's library supports ℚ and floating points, we assume we will not see
@@ -191,7 +171,6 @@ meta instance : has_to_format mmexpr := ⟨mmexpr_to_format⟩
 
 /-
   The following defs (from Leo) are useful for creating pexprs.
-  Todo(?): refactor some of the instances below to use these.
 -/
 meta def mk_local_const (n : name) : pexpr :=
 let t := pexpr.mk_placeholder in
@@ -207,192 +186,291 @@ meta def mk_app_core : pexpr → list pexpr → pexpr
 | fn []      := fn
 | fn (x::xs) := pexpr.of_raw_expr (app (pexpr.to_raw_expr (mk_app_core fn xs)) (pexpr.to_raw_expr x))
 
-meta def mk_app (fn : pexpr) (args : list pexpr) : pexpr :=
+meta def pexpr_mk_app (fn : pexpr) (args : list pexpr) : pexpr :=
 mk_app_core fn args^.reverse
 
-/-
-  The following instances allow us to infer translations from mmexprs to meaningful Lean terms.
-  Some Mathematica expressions, e.g. 
-    LeanConst[LeanNameMkString["nat", LeanNameAnonymous], LeanLevelListNil]
-  correspond to fully elaborated Lean expressions, e.g. nat.
-  Others, e.g. LeanListNil or LeanPlus[x, y], correspond to unelaborated preexpressions
-  (the latter under the assumption that x and y corespond to preexpressions). 
--/
+section translation
+open rb_lmap
+meta instance : has_ordering string := ⟨λ s1 s2, name.cmp s1 s2⟩
 
--- Classes
-meta class mmexpr_has_to_pexpr (m : mmexpr) :=
-(to_pexpr : pexpr)
+meta def sym_trans_pexpr_rule := string × pexpr
+meta def sym_trans_expr_rule := string × expr
+meta def app_trans_pexpr_keyed_rule := string × (list mmexpr → tactic pexpr)
+meta def app_trans_expr_keyed_rule := string × (list mmexpr → tactic expr)
+meta def app_trans_pexpr_unkeyed_rule := mmexpr → list mmexpr → tactic pexpr
+meta def app_trans_expr_unkeyed_rule := mmexpr → list mmexpr → tactic expr
 
-meta class mmexpr_has_to_expr (m : mmexpr) :=
-(to_expr : expr)
+meta def trans_env := rb_map string expr
 
-meta class mmexpr_has_to_binder_info (m : mmexpr) :=
-(to_binder_info : binder_info)
+-- databases
 
-meta class mmexpr_has_to_level (m : mmexpr) :=
-(to_level : level)
+meta def mk_sym_trans_pexpr_db (l : list name) : tactic (rb_lmap string pexpr) := do
+ dcls ← monad.mapm
+  (λ n, do c ← mk_const n,
+   eval_expr sym_trans_pexpr_rule c) 
+  l,
+ return $ rb_lmap.of_list dcls
 
-meta class mmexpr_has_to_level_list (m : mmexpr) :=
-(to_level_list : list level)
+meta def mk_sym_trans_expr_db (l : list name) : tactic (rb_lmap string expr) := do
+ dcls ← monad.mapm
+  (λ n, do c ← mk_const n,
+   eval_expr sym_trans_expr_rule c)
+  l,
+ return $ rb_lmap.of_list dcls
 
-meta class mmexpr_has_to_name (m : mmexpr) :=
-(to_name : name)
+meta def mk_app_trans_pexpr_keyed_db (l : list name) : tactic (rb_lmap string (list mmexpr → tactic pexpr)) := do
+ dcls ← monad.mapm
+  (λ n, do c ← mk_const n,
+   eval_expr app_trans_pexpr_keyed_rule c) 
+  l,
+ return $ rb_lmap.of_list dcls
 
-meta class mmexpr_list_has_to_pexpr_list (l : list mmexpr) :=
-(to_pexpr_list : list pexpr)
+meta def mk_app_trans_expr_keyed_db (l : list name) : tactic (rb_lmap string (list mmexpr → tactic expr)) := do
+ dcls ← monad.mapm
+  (λ n, do c ← mk_const n,
+   eval_expr app_trans_expr_keyed_rule c)
+  l,
+ return $ rb_lmap.of_list dcls
 
-meta class mmexpr_has_to_abstractable (m : mmexpr) :=
-(to_abstractable : pexpr)
+meta def mk_app_trans_pexpr_unkeyed_db (l : list name) : tactic (list (mmexpr → list mmexpr → tactic pexpr)) :=
+monad.mapm (λ n, do c ← mk_const n, eval_expr app_trans_pexpr_unkeyed_rule c) l
 
--- Extractors
-meta def pexpr_of_mmexpr (m : mmexpr) [mmexpr_has_to_pexpr m] : pexpr :=
-mmexpr_has_to_pexpr.to_pexpr m
+meta def mk_app_trans_expr_unkeyed_db (l : list name) : tactic (list (mmexpr → list mmexpr → tactic expr)) :=
+monad.mapm (λ n, do c ← mk_const n, eval_expr app_trans_expr_unkeyed_rule c) l
 
-meta def expr_of_mmexpr (m : mmexpr) [mmexpr_has_to_expr m] : expr :=
-mmexpr_has_to_expr.to_expr m
+meta def sym_to_pexpr_rule : caching_user_attribute (rb_lmap string pexpr) :=
+⟨`sym_to_pexpr, "rule for translating a mmexpr.sym to a pexpr", mk_sym_trans_pexpr_db, []⟩ 
 
-meta def binder_info_of_mmexpr (m : mmexpr) [mmexpr_has_to_binder_info m] : binder_info :=
-mmexpr_has_to_binder_info.to_binder_info m
+meta def sym_to_expr_rule : caching_user_attribute (rb_lmap string expr) :=
+⟨`sym_to_expr, "rule for translating a mmexpr.sym to a expr", mk_sym_trans_expr_db, []⟩ 
 
-meta def level_of_mmexpr (m : mmexpr) [mmexpr_has_to_level m] : level :=
-mmexpr_has_to_level.to_level m
+meta def app_to_pexpr_keyed_rule : caching_user_attribute (rb_lmap string (list mmexpr → tactic pexpr)) :=
+⟨`app_to_pexpr_keyed, "rule for translating a mmexpr.app to a pexpr", mk_app_trans_pexpr_keyed_db, []⟩ 
 
-meta def level_list_of_mmexpr (m : mmexpr) [mmexpr_has_to_level_list m] : list level :=
-mmexpr_has_to_level_list.to_level_list m
+meta def app_to_expr_keyed_rule : caching_user_attribute (rb_lmap string (list mmexpr → tactic expr)) :=
+⟨`app_to_expr_keyed, "rule for translating a mmexpr.app to a expr", mk_app_trans_expr_keyed_db, []⟩ 
 
-meta def name_of_mmexpr (m : mmexpr) [mmexpr_has_to_name m] : name :=
-mmexpr_has_to_name.to_name m
+meta def app_to_pexpr_unkeyed_rule : caching_user_attribute (list (mmexpr → list mmexpr → tactic pexpr)) :=
+⟨`app_to_pexpr_unkeyed, "rule for translating a mmexpr.app to a pexpr", mk_app_trans_pexpr_unkeyed_db, []⟩ 
 
-meta def pexpr_list_of_mmexpr_list (l : list mmexpr) [mmexpr_list_has_to_pexpr_list l] :=
-mmexpr_list_has_to_pexpr_list.to_pexpr_list l
+meta def app_to_expr_unkeyed_rule : caching_user_attribute (list (mmexpr → list mmexpr → tactic expr)) :=
+⟨`app_to_expr_unkeyed, "rule for translating a mmexpr.app to a expr", mk_app_trans_expr_unkeyed_db, []⟩ 
 
-meta def abstractable_of_mmexpr (m : mmexpr) [mmexpr_has_to_abstractable m] :=
-mmexpr_has_to_abstractable m
-
--- Translations to binder_info
-meta instance mmexpr_binder_info_default : mmexpr_has_to_binder_info (sym "BinderInfoDefault") :=
-⟨_, binder_info.default⟩
-meta instance mmexpr_binder_info_implicit : mmexpr_has_to_binder_info (sym "BinderInfoImplicit") :=
-⟨_, binder_info.implicit⟩
-meta instance mmexpr_binder_info_strict : mmexpr_has_to_binder_info (sym "BinderInfoStrictImplicit") :=
-⟨_, binder_info.strict_implicit⟩
-meta instance mmexpr_binder_info_inst : mmexpr_has_to_binder_info (sym "BinderInfoInstImplicit") :=
-⟨_, binder_info.inst_implicit⟩
-meta instance mmexpr_binder_info_other : mmexpr_has_to_binder_info (sym "BinderInfoOther") :=
-⟨_, binder_info.other⟩
-
--- Translations to level lists
-meta instance mmexpr_level_list_nil : mmexpr_has_to_level_list (sym "LeanLevelListNil") :=
-⟨_, []⟩
-
-meta instance mmexpr_level_list_cons (h t : mmexpr) [mmexpr_has_to_level h] [mmexpr_has_to_level_list t] :
-      mmexpr_has_to_level_list (app (sym "LeanLevelListCons") [h, t]) :=
-⟨_, list.cons (level_of_mmexpr h) (level_list_of_mmexpr t)⟩
-
--- Translations to levels
-meta instance mmexpr_level_zero : mmexpr_has_to_level (sym "LeanZeroLevel") :=
-⟨_, level.zero⟩
-
-meta instance mmexpr_level_succ (m : mmexpr) [mmexpr_has_to_level m] :
-      mmexpr_has_to_level (app (sym "LeanLevelSucc") [m]) :=
-⟨_, level.succ (level_of_mmexpr m)⟩
-
-meta instance mmexpr_level_max (m1 m2 : mmexpr) [mmexpr_has_to_level m1] [mmexpr_has_to_level m2] :
-      mmexpr_has_to_level (app (sym "LeanLevelMax") [m1, m2]) :=
-⟨_, level.max (level_of_mmexpr m1) (level_of_mmexpr m2)⟩
-
-meta instance mmexpr_level_imax (m1 m2 : mmexpr) [mmexpr_has_to_level m1] [mmexpr_has_to_level m2] :
-      mmexpr_has_to_level (app (sym "LeanLevelIMax") [m1, m2]) :=
-⟨_, level.imax (level_of_mmexpr m1) (level_of_mmexpr m2)⟩
-
-meta instance mmexpr_level_param (s : string) : mmexpr_has_to_level (app (sym "LeanLevelParam") [str s]) :=
-⟨_, level.param s⟩
-
-meta instance mmexpr_level_global (s : string) : mmexpr_has_to_level (app (sym "LeanLevelGlobal") [str s]) :=
-⟨_, level.global s⟩
-
-meta instance mmexpr_level_mvar(s : string) : mmexpr_has_to_level (app (sym "LeanLevelMeta") [str s]) :=
-⟨_, level.mvar s⟩
-
--- Translations to names
-meta instance mmexpr_name_anonymous : mmexpr_has_to_name (sym "LeanNameAnonymous") :=
-⟨_, anonymous⟩
-
-meta instance mmexpr_name_mk_string (s : string) (m : mmexpr) [mmexpr_has_to_name m] :
-     mmexpr_has_to_name (app (sym "LeanNameMkString") [str s, m]) :=
-⟨_, mk_string s (name_of_mmexpr m)⟩
-
-meta instance mmexpr_name_mk_num (i : num) (m : mmexpr) [mmexpr_has_to_name m] :
-      mmexpr_has_to_name (app (sym "LeanNameMkNum") [mint (signed_num.pos i), m]) :=
-⟨_, mk_numeral (unsigned.of_nat (nat.of_num i)) (name_of_mmexpr m)⟩
-
--- Translations to list pexpr
-meta instance mmexpr_list_nil : mmexpr_list_has_to_pexpr_list [] := 
-⟨_, []⟩
-
-meta instance mmexpr_list_cons (h : mmexpr) (t : list mmexpr) [mmexpr_has_to_pexpr h] 
-     [mmexpr_list_has_to_pexpr_list t] : mmexpr_list_has_to_pexpr_list (h :: t) :=
-⟨_, pexpr_of_mmexpr h :: pexpr_list_of_mmexpr_list t⟩
-
--- Translations to expr
--- For the most part, these unreflect reflected Lean expressions.
-meta instance mmexpr_has_to_expr_var (i : signed_num) : mmexpr_has_to_expr (app (sym "LeanVar") [mint i]) :=
-⟨_, (var (unsigned_of_signed_num i))⟩
-
-meta instance mmexpr_has_to_expr_sort (m : mmexpr) [mmexpr_has_to_level m] : 
-     mmexpr_has_to_expr (app (sym "LeanSort") [m]) :=
-⟨_, sort (level_of_mmexpr m)⟩
-
-meta instance mmexpr_has_to_expr_const (nm lvls : mmexpr) [mmexpr_has_to_name nm] [mmexpr_has_to_level_list lvls] :
-     mmexpr_has_to_expr (app (sym "LeanConst") [nm, lvls]) := 
-⟨_, const (name_of_mmexpr nm) (level_list_of_mmexpr lvls)⟩
-
-meta instance mmexpr_has_to_expr_mvar (nm m : mmexpr) [mmexpr_has_to_name nm] [mmexpr_has_to_expr m] :
-      mmexpr_has_to_expr (app (sym "LeanMetaVar") [nm, m]) :=
-⟨_, mvar (name_of_mmexpr nm) (expr_of_mmexpr m)⟩
-
-meta instance mmexpr_has_to_expr_local (nm ppnm bi tp : mmexpr) [mmexpr_has_to_name nm] 
-     [mmexpr_has_to_name ppnm] [mmexpr_has_to_binder_info bi] [mmexpr_has_to_expr tp] : 
-     mmexpr_has_to_expr (app (sym "LeanLocal") [nm,ppnm, bi, tp]) :=
-⟨_, (expr.local_const (name_of_mmexpr nm) (name_of_mmexpr ppnm) (binder_info_of_mmexpr bi) (expr_of_mmexpr tp)) ⟩
-
-meta instance mmexpr_has_to_expr_app (f e : mmexpr) [mmexpr_has_to_expr f] [mmexpr_has_to_expr e] : 
-     mmexpr_has_to_expr (app (sym "LeanApp") [f, e]) :=
-⟨_, expr.app (expr_of_mmexpr f) (expr_of_mmexpr e)⟩
-
-meta instance mmexpr_has_to_expr_lam (nm bi tp bd : mmexpr) [mmexpr_has_to_name nm] 
-     [mmexpr_has_to_binder_info bi] [mmexpr_has_to_expr tp] [mmexpr_has_to_expr bd] : 
-     mmexpr_has_to_expr (app (sym "LeanLambda") [nm, bi, tp, bd]) :=
-⟨_, lam (name_of_mmexpr nm) (binder_info_of_mmexpr bi) (expr_of_mmexpr tp) (expr_of_mmexpr bd)⟩
-
-meta instance mmexpr_has_to_expr_pi (nm bi tp bd : mmexpr) [mmexpr_has_to_name nm] 
-     [mmexpr_has_to_binder_info bi] [mmexpr_has_to_expr tp] [mmexpr_has_to_expr bd] :
-     mmexpr_has_to_expr (app (sym "LeanPi") [nm, bi, tp, bd]) :=
-⟨_, pi (name_of_mmexpr nm) (binder_info_of_mmexpr bi) (expr_of_mmexpr tp) (expr_of_mmexpr bd)⟩
-
--- Translation to abstractable
--- This is used for function abstraction
-@[priority 1]
-meta instance mmexpr_has_to_pexpr_sym (s : string) : mmexpr_has_to_pexpr (sym s) :=
-⟨_, mk_local_const s⟩
-
--- Translations to pexpr
--- For the most part, these are how we assign Lean semantics to Mathematica expressions.
-meta instance mmexpr_has_to_pexpr_of_has_to_expr (m : mmexpr) [mmexpr_has_to_expr m] : mmexpr_has_to_pexpr m :=
-⟨_, pexpr.of_expr (expr_of_mmexpr m)⟩
+run_command attribute.register `sym_to_pexpr_rule
+run_command attribute.register `sym_to_expr_rule
+run_command attribute.register `app_to_pexpr_keyed_rule
+run_command attribute.register `app_to_expr_keyed_rule
+run_command attribute.register `app_to_pexpr_unkeyed_rule
+run_command attribute.register `app_to_expr_unkeyed_rule
 
 
-/-meta instance mmexpr_has_to_pexpr_leanadd (x y : mmexpr) [mmexpr_has_to_pexpr x] [mmexpr_has_to_pexpr y] : mmexpr_has_to_pexpr (app (sym "LeanAdd") [x, y]) :=
-⟨_, `(%%(pexpr_of_mmexpr x) + %%(pexpr_of_mmexpr y))⟩
+meta def expr_of_mmexpr_app_keyed : mmexpr → list mmexpr → tactic expr
+ | (sym hd) args := do 
+ expr_db ← caching_user_attribute.get_cache app_to_expr_keyed_rule,
+ tactic.first (list.map (λ f : list mmexpr → tactic expr, f args) (find expr_db hd)) -- why is type for f needed?
+ | (str s) args := failed
+ | (mint i) args := failed
+ | (app i j) args := failed
 
-meta instance mmexpr_has_to_pexpr_leanmul (x y : mmexpr) [mmexpr_has_to_pexpr x] [mmexpr_has_to_pexpr y] : mmexpr_has_to_pexpr (app (sym "LeanMul") [x, y]) :=
-⟨_, `(%%(pexpr_of_mmexpr x) * %%(pexpr_of_mmexpr y))⟩
+meta def expr_of_mmexpr_app_unkeyed (hd : mmexpr) (args : list mmexpr) : tactic expr := do
+ expr_db ← caching_user_attribute.get_cache app_to_expr_unkeyed_rule,
+ tactic.first (list.map (λ f : mmexpr → list mmexpr → tactic expr, f hd args) expr_db)
 
-meta instance mmexpr_has_to_pexpr_list_nil : mmexpr_has_to_pexpr (sym "LeanListNil") :=
-⟨_, `(list.nil)⟩
+meta def expr_of_mmexpr_app_decomp (expr_of_mmexpr : mmexpr → tactic expr)
+         (hd : mmexpr) (args : list mmexpr) : tactic expr := do
+ hs ← expr_of_mmexpr hd,
+ args' ← monad.mapm expr_of_mmexpr args,
+ return $ expr.mk_app hs args'
 
-meta instance mmexpr_has_to_pexpr_list_cons (h t : mmexpr) [mmexpr_has_to_pexpr h] [mmexpr_has_to_pexpr t] : mmexpr_has_to_pexpr (app (sym "LeanListCons") [h, t]) :=
-⟨_, `(list.cons %%(pexpr_of_mmexpr h) %%(pexpr_of_mmexpr t))⟩-/
+meta def expr_of_mmexpr_app (expr_of_mmexpr : mmexpr → tactic expr)
+         (m : mmexpr) (l : list mmexpr) : tactic expr :=
+ expr_of_mmexpr_app_keyed m l <|> 
+ expr_of_mmexpr_app_unkeyed m l <|> 
+ expr_of_mmexpr_app_decomp expr_of_mmexpr m l
+
+meta def pexpr_of_mmexpr_app_keyed : mmexpr → list mmexpr → tactic pexpr
+ | (sym hd) args := do
+ expr_db ← caching_user_attribute.get_cache app_to_pexpr_keyed_rule,
+ tactic.first (list.map (λ f : list mmexpr → tactic pexpr, f args) (find expr_db hd)) -- why is type for f needed?
+ | (str s) args := failed
+ | (mint i) args := failed
+ | (app i j) args := failed
+
+meta def pexpr_of_mmexpr_app_unkeyed (hd : mmexpr) (args : list mmexpr) : tactic pexpr := do
+ expr_db ← caching_user_attribute.get_cache app_to_pexpr_unkeyed_rule,
+ tactic.first (list.map (λ f : mmexpr → list mmexpr → tactic pexpr, f hd args) expr_db)
+
+meta def pexpr_of_mmexpr_app_decomp (pexpr_of_mmexpr : mmexpr → tactic pexpr)
+         (hd : mmexpr) (args : list mmexpr) : tactic pexpr := do
+ hs ← pexpr_of_mmexpr hd,
+ args' ← monad.mapm pexpr_of_mmexpr args,
+ return $ pexpr_mk_app hs args'
+
+meta def pexpr_of_mmexpr_app (pexpr_of_mmexpr : mmexpr → tactic pexpr)
+         (m : mmexpr) (l : list mmexpr) : tactic pexpr :=
+ pexpr_of_mmexpr_app_keyed  m l <|> 
+ pexpr_of_mmexpr_app_unkeyed  m l <|> 
+ pexpr_of_mmexpr_app_decomp pexpr_of_mmexpr m l
+
+meta def expr_of_mmexpr : mmexpr → tactic expr
+| (sym s) := do
+  expr_db ← caching_user_attribute.get_cache sym_to_expr_rule,
+  match find expr_db s with
+  | (h :: t) := return h
+  | [] := fail ("Couldn't find translation for sym \"" ++ s ++ "\"")
+ end
+| (str s) := string.to_expr s
+| (mint i) := failed
+| (app hd args) := expr_of_mmexpr_app expr_of_mmexpr hd args 
+
+meta def pexpr_of_mmexpr_aux (pexpr_of_mmexpr : mmexpr → tactic pexpr) : mmexpr → tactic pexpr
+| (sym s) := do
+  expr_db ← caching_user_attribute.get_cache sym_to_pexpr_rule,
+  match find expr_db s with
+  | (h :: t) := return h
+  | [] := fail ("Couldn't find translation for sym \"" ++ s ++ "\"")
+ end
+| (str s) := fail "unreachable, str case shouldn't reach pexpr_of_mmexpr_aux"
+| (mint i) := return $ pexpr_of_signed_num i
+| (app hd args) := pexpr_of_mmexpr_app pexpr_of_mmexpr hd args 
+
+meta def pexpr_of_mmexpr : mmexpr → tactic pexpr := 
+λ m, (do e ← expr_of_mmexpr m, return `(%%e)) <|> (pexpr_of_mmexpr_aux pexpr_of_mmexpr m)
+
+end translation
+
+section unreflect
+-- The nested inductive pattern-matcher doesn't support placeholders yet.
+-- Clean these up when this is fixed. (#1334)
+meta def level_of_mmexpr : mmexpr → tactic level 
+| (sym "LeanZeroLevel") := return $ level.zero
+| (app (sym "LeanLevelSucc") [m]) := do m' ← level_of_mmexpr m, return $ level.succ m'
+| (app (sym "LeanLevelMax") [m1, m2]) := do 
+  m1' ← level_of_mmexpr m1, 
+  m2' ← level_of_mmexpr m2, 
+  return $ level.max m1' m2'
+| (app (sym "LeanLevelIMax") [m1, m2]) := do 
+  m1' ← level_of_mmexpr m1, 
+  m2' ← level_of_mmexpr m2, 
+  return $ level.imax m1' m2'
+| (app (sym "LeanLevelParam") [str s]) := return $ level.param s
+| (app (sym "LeanLevelMeta") [str s]) := return $ level.mvar s
+| (app h t) := failed
+| (sym s) := failed
+| (str s) := failed
+| (mint i) := failed
+
+meta def level_list_of_mmexpr : mmexpr → tactic (list level) 
+| (sym "LeanLevelListNil") := return []
+| (app (sym "LeanLevelListCons") [h, t]) := do 
+  h' ← level_of_mmexpr h, 
+  t' ← level_list_of_mmexpr t,
+  return $ h' :: t'
+| (app h t) := failed
+| (sym s) := failed
+| (str s) := failed
+| (mint i) := failed
+
+meta def name_of_mmexpr : mmexpr → tactic name 
+| (sym "LeanNameAnonymous") := return $ name.anonymous
+| (app (sym "LeanNameMkString") [str s, m]) := do 
+  n ← name_of_mmexpr m, return $ name.mk_string s n
+| (app (sym "LeanNameMkNum") [mint i, m]) := do 
+  n ← name_of_mmexpr m, return $ name.mk_numeral (unsigned_of_signed_num i) n
+| (app h t) := failed
+| (sym s) := failed
+| (str s) := failed
+| (mint i) := failed
+
+meta def binder_info_of_mmexpr : mmexpr → tactic binder_info 
+| (sym "BinderInfoDefault") := return $ binder_info.default 
+| (sym "BinderInfoImplicit") := return $ binder_info.implicit 
+| (sym "BinderInfoStrictImplicit") := return $ binder_info.strict_implicit
+| (sym "BinderInfoInstImplicit") := return $ binder_info.inst_implicit
+| (sym "BinderInfoOther") := return $ binder_info.other
+| _ := failed
+end unreflect
+
+section transl_expr_instances
+
+@[app_to_expr_keyed]
+meta def mmexpr_var_to_expr : app_trans_expr_keyed_rule :=
+⟨"LeanVar", 
+λ args, match args with
+| [mint i] := return $ var (unsigned_of_signed_num i)
+| _        := failed
+end⟩ 
+
+@[app_to_expr_keyed]
+meta def mmexpr_sort_to_expr : app_trans_expr_keyed_rule :=
+⟨"LeanSort",
+λ args, match args with
+| [m] := do lvl ← level_of_mmexpr m, return $ sort lvl
+| _   := failed
+end⟩
+
+@[app_to_expr_keyed]
+meta def mmexpr_const_to_expr : app_trans_expr_keyed_rule :=
+⟨"LeanConst",
+λ args, match args with
+| [nm, lvls] := do nm' ← name_of_mmexpr nm, lvls' ← level_list_of_mmexpr lvls, return $ const nm' lvls'
+| _   := failed
+end⟩
+
+@[app_to_expr_keyed]
+meta def mmexpr_mvar_to_expr : app_trans_expr_keyed_rule :=
+⟨"LeanMetaVar",
+λ args, match args with
+| [nm, tp] := do nm' ← name_of_mmexpr nm, tp' ← expr_of_mmexpr tp, return $ mvar nm' tp'
+| _   := failed
+end⟩
+
+@[app_to_expr_keyed]
+meta def mmexpr_local_to_expr : app_trans_expr_keyed_rule :=
+⟨"LeanLocal",
+λ args, match args with
+| [nm, ppnm, bi, tp] := do 
+  nm' ← name_of_mmexpr nm, 
+  ppnm' ← name_of_mmexpr ppnm, 
+  bi' ← binder_info_of_mmexpr bi, 
+  tp' ← expr_of_mmexpr tp, 
+  return $ expr.local_const nm' ppnm' bi' tp'
+| _   := failed
+end⟩
+
+@[app_to_expr_keyed]
+meta def mmexpr_app_to_expr : app_trans_expr_keyed_rule :=
+⟨"LeanApp",
+λ args, match args with
+| [hd, bd] := do hd' ← expr_of_mmexpr hd, bd' ← expr_of_mmexpr bd, return $ expr.app hd' bd'
+| _   := failed
+end⟩
+
+@[app_to_expr_keyed]
+meta def mmexpr_lam_to_expr : app_trans_expr_keyed_rule :=
+⟨"LeanLambda",
+λ args, match args with
+| [nm, bi, tp, bd] := do 
+  nm' ← name_of_mmexpr nm, 
+  bi' ← binder_info_of_mmexpr bi, 
+  tp' ← expr_of_mmexpr tp,
+  bd' ← expr_of_mmexpr bd,
+  return $ lam nm' bi' tp' bd'
+| _   := failed
+end⟩
+
+@[app_to_expr_keyed]
+meta def mmexpr_pi_to_expr : app_trans_expr_keyed_rule :=
+⟨"LeanPi",
+λ args, match args with
+| [nm, bi, tp, bd] := do 
+  nm' ← name_of_mmexpr nm, 
+  bi' ← binder_info_of_mmexpr bi, 
+  tp' ← expr_of_mmexpr tp,
+  bd' ← expr_of_mmexpr bd,
+  return $ lam nm' bi' tp' bd'
+| _ := failed
+end⟩
 
 meta def pexpr_fold_op_aux (op : pexpr) : pexpr → list pexpr → pexpr
 | e [] := e
@@ -403,131 +481,45 @@ meta def pexpr_fold_op (dflt op : pexpr) : list pexpr → pexpr
 | [h] := h
 | (h::t) := pexpr_fold_op_aux op h t
 
-meta instance mmexpr_has_to_pexpr_plus (l : list mmexpr) [mmexpr_list_has_to_pexpr_list l] :
-     mmexpr_has_to_pexpr (app (sym "Plus") l) :=
-⟨_, pexpr_fold_op `(0) `(add) (pexpr_list_of_mmexpr_list l)⟩
+-- pexpr instances
 
-meta instance mmexpr_has_to_pexpr_times (l : list mmexpr) [mmexpr_list_has_to_pexpr_list l] :
-     mmexpr_has_to_pexpr (app (sym "Times") l) :=
-⟨_, pexpr_fold_op `(1) `(mul) (pexpr_list_of_mmexpr_list l)⟩
+@[app_to_pexpr_keyed]
+meta def add_to_pexpr : app_trans_pexpr_keyed_rule :=
+⟨"Plus", 
+λ args, do args' ← monad.for args pexpr_of_mmexpr, return $ pexpr_fold_op `(0) `(add) args'⟩
 
-meta instance mmexpr_has_to_pexpr_list (l : list mmexpr) [mmexpr_list_has_to_pexpr_list l] : 
-     mmexpr_has_to_pexpr (app (sym "List") l) :=
-⟨_, list.foldr (λ h t, `(%%h :: %%t)) `([]) (pexpr_list_of_mmexpr_list l)⟩
+@[app_to_pexpr_keyed]
+meta def mul_to_pexpr : app_trans_pexpr_keyed_rule :=
+⟨"Times", 
+λ args, do args' ← monad.for args pexpr_of_mmexpr, return $ pexpr_fold_op `(0) `(mul) args'⟩
 
--- FILL IN FUNCTION TRANSLATION
-@[reducible]
-meta def abstract_mmexpr_symbol (s : string) (new_s : mmexpr) : mmexpr → mmexpr
-| (app e l) := app (abstract_mmexpr_symbol e) (list.map abstract_mmexpr_symbol l)
-| (sym t)   := if s = t then new_s else sym t
-| (str t)   := str t
-| (mint i)  := mint i
+@[app_to_pexpr_keyed]
+meta def list_to_pexpr : app_trans_pexpr_keyed_rule := 
+⟨"List",
+λ args, do args' ← monad.for args pexpr_of_mmexpr, return $ list.foldr (λ h t, `(%%h :: %%t)) `([]) args'⟩
 
-/-meta instance abstract_has_to_pexpr (s : string) (news : mmexpr) [mmexpr_has_to_pexpr news] : Π (m : mmexpr) [mmexpr_has_to_pexpr m], mmexpr_has_to_pexpr (abstract_mmexpr_symbol s news m)
-| (app e l) h := by apply_instance
-| (sym t) h := by apply_instance 
-| (str t) h := by apply_instance
-| (mint i) h := by apply_instance-/
+end transl_expr_instances
 
-@[reducible]
-meta def mk_name_mmexpr (s : string) : mmexpr := app (sym "LeanNameMkString") [str s, sym "LeanNameAnonymous"]
-
-@[reducible]
-meta def mk_local_mmexpr (s : string) : mmexpr := app (sym "LeanLocal") [mk_name_mmexpr s, mk_name_mmexpr s, sym "BinderInfoDefault", app (sym "LeanSort") [sym "LeanZeroLevel"]]
-
-meta instance mk_local_has_to_pexpr (s : string) : mmexpr_has_to_pexpr (mk_local_mmexpr s) := 
-by apply_instance
-
-
-meta instance mmexpr_has_to_pexpr_function (s : string) (m : mmexpr) [mmexpr_has_to_pexpr  m] : mmexpr_has_to_pexpr (app (sym "Function") [sym s, m]) :=
-⟨_, mk_lambda (mk_local_const s) (pexpr_of_mmexpr m)⟩
-
---meta instance mmexpr_has_to_pexpr_function (s : string) (m : mmexpr) [mmexpr_has_to_pexpr m] : mmexpr_has_to_pexpr (app (sym "Function") [sym s, m]) :=
-/-meta instance mmexpr_has_to_pexpr_function (s : string) (m : mmexpr) [mmexpr_has_to_pexpr (abstract_mmexpr_symbol s (mk_local_mmexpr s) m)] : mmexpr_has_to_pexpr (app (sym "Function") [sym s, m]) :=
-⟨_, mk_lambda (mk_local_const s) (pexpr_of_mmexpr (abstract_mmexpr_symbol s (mk_local_mmexpr s) m))⟩-/
-
---meta instance mmexpr_has_to_pexpr_function (s : string) (m : mmexpr) [h : mmexpr_has_to_pexpr (abstract_mmexpr_symbol s (app (sym "LeanLocal") [str "MMVAR_s", str "MMVAR_s", (sym "BinderInfoDefault"), app (sym "LeanConst") [str "nat", sym "LeanLevelListNil"]]) m)] : mmexpr_has_to_pexpr (app (sym "Function") [sym s, m]) :=
---⟨_, `(λ MMVAR_s, %%(@pexpr_of_mmexpr _ h))⟩
---⟨_, expr.abstract_local (@expr_of_mmexpr _ h) s⟩
-/-
-meta example : abstract_mmexpr_symbol "x" (sym "y") (app (sym "Plus") [sym "x", sym "x"]) = app (sym "Plus") [sym "y", sym "y"] := begin
-
-end
--
-vm_eval abstract_mmexpr_symbol "x"  (app (sym "LeanLocal") [str "MMVAR_s", str "MMVAR_s", (sym "BinderInfoDefault"), app (sym "LeanConst") [str "nat", sym "LeanLevelListNil"]]) (app (sym "Plus") [sym "x", sym "x"])
-
-example : true = true := by do
- ex ← wl_execute_str "Function[x, x+x]",
-  ex' ← to_expr `(pexpr_of_mmexpr %%ex),
-  --let ex' := expr_of_mmexpr exm in do
-  trace ex',
-  infer_type ex' >>= trace,
-  ex'' ← eval_expr pexpr ex',
-  ex''' ← to_expr `((%%ex'' : ℕ → ℕ)),
-  trace ex''',
-  reflexivity
--/
-
---@[reducible] meta def add_fn : mmexpr := app (sym "Function") [sym "x", app (sym "LeanAdd") [sym "x", sym "x"]]
-
---set_option trace.class_instances true
---eval pexpr_of_mmexpr  add_fn
-
-/-meta example : (abstract_mmexpr_symbol "x" (mk_local_mmexpr "x") (app (sym "LeanAdd") [sym "x", sym "x"])) = app (sym "LeanAdd") [mk_local_mmexpr "x", mk_local_mmexpr "x"] := rfl
-
-meta example : abstract_mmexpr_symbol "x" (mk_local_mmexpr "x") (sym "x") = mk_local_mmexpr "x" := rfl
-meta example (k) : abstract_mmexpr_symbol "x" (mk_local_mmexpr "x") (mint k) = mint k := rfl
-meta example : abstract_mmexpr_symbol "x" (mk_local_mmexpr "x") (app (sym "hi") []) = app (sym "hi") [] := rfl
-
--/
-
-meta instance mmexpr_has_to_pexpr_int (i : signed_num) : mmexpr_has_to_pexpr (mint i) :=
-⟨_, pexpr_of_signed_num i⟩
-
-meta instance mmexpr_has_to_pexpr_string (s : string)  : mmexpr_has_to_pexpr (mmexpr.str s) :=
-⟨_, pexpr_of_string s⟩
-
-
-/-
-  User-facing tactics for calling Mathematica that build on wl_execute_expr 
--/
-
+-- user-facing tactics
 namespace tactic
 
 meta def run_mm_command_on_expr (cmd : string → string) (e : expr) : tactic pexpr := do
  rval ← wl_execute_str $ cmd $ mathematica_form_of_expr e,
- --trace "rval: ", trace rval,
-  pexe ← to_expr `(pexpr_of_mmexpr %%rval),
- eval_expr pexpr pexe
+ rval' ← eval_expr mmexpr rval,
+ pexpr_of_mmexpr rval'
 
 meta def run_mm_command_on_expr_using (cmd : string → string) (e : expr) (path : string) : tactic pexpr := do
  rval ← wl_execute_str ("Get[\"" ++ path ++ "\"]; " ++ (cmd (mathematica_form_of_expr e))),
  --trace "rval: ", trace rval,
- pexe ← to_expr `(pexpr_of_mmexpr %%rval),
- eval_expr pexpr pexe
+ rval' ← eval_expr mmexpr rval,
+ pexpr_of_mmexpr rval'
 
 meta def run_mm_command_on_exprs_using (cmd : string → string → string) (e1 e2 : expr) (path : string) :
      tactic pexpr := 
 do
  rval ← wl_execute_str ("Get[\"" ++ path ++ "\"]; " ++ 
           (cmd (mathematica_form_of_expr e1) (mathematica_form_of_expr e2))),
- --trace "rval: ", trace rval,
- pexe ← to_expr `(pexpr_of_mmexpr %%rval),
- eval_expr pexpr pexe
+ rval' ← eval_expr mmexpr rval,
+ pexpr_of_mmexpr rval'
 
 end tactic
-exit
-
-open tactic
-set_option class.instance_max_depth 64
-example (a b c : ℕ) : true = true := by do
-e ← to_expr `([a, b, c]) >>= run_mm_command_on_expr (λ s, s++" // LeanForm // Activate"),
-to_expr e >>= trace,
-reflexivity
-
-example : true = true := by do
-e ← wl_execute_str "Function[a, a+a]",
-pexe ← to_expr `(pexpr_of_mmexpr %%e),
-pxr ← eval_expr pexpr pexe,
-to_expr `((%%pxr : ℕ → ℕ)) >>= trace,
-reflexivity

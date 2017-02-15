@@ -111,9 +111,10 @@ least the following keys:
          ; https://debbugs.gnu.org/cgi/bugreport.cgi?bug=24531
          (process-connection-type nil)
          (cmd `(,(lean-get-executable lean-executable-name)
-                "--server -j0"
+                "--server"
                 ,(format "-M%i" lean-memory-limit)
                 ,(format "-T%i" lean-timeout-limit)
+		,"-j0"
                 ,@lean-extra-arguments
                 ,(format "*%s*" path-file)))
          (proc (if (fboundp 'make-process)

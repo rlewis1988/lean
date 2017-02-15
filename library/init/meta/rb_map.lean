@@ -138,6 +138,19 @@ match (rb_map.find rbl k) with
 | (some l) := l
 end
 
+meta def fold {key : Type} {data : Type} {α : Type} : rb_lmap key data → α → (key → list data → α → α) → α :=
+rb_map.fold
+
+meta def union {key : Type} {data : Type} (rbl1 rbl2 : rb_lmap key data) : rb_lmap key data :=
+fold rbl2 rbl1 (λ k l rbl, list.foldl (λ rbl' d, insert rbl' k d) rbl l)
+
+--vm_eval find (union (insert (insert (rb_lmap.mk ℕ ℕ) 0 1) 0 2) (insert (rb_lmap.mk ℕ ℕ) 0 4)) 0
+
+open list
+meta def of_list {key : Type} {data : Type} [has_ordering key] : list (key × data) → rb_lmap key data
+| []           := rb_lmap.mk key data
+| ((k, v)::ls) := insert (of_list ls) k v
+
 end rb_lmap
 
 meta def rb_set (key) := rb_map key unit
