@@ -18,6 +18,8 @@ using namespace std;
 namespace lean {
 
 
+  MLINK * mlpptr = nullptr;
+  MLEnvironment * mlpenvptr = nullptr;
   MLINK mlp;
   MLEnvironment mlpenv;
   
@@ -55,17 +57,19 @@ namespace lean {
 
     mlp = ml;
     mlpenv = mlpe;
+    //std::cout << "done with initiate\n";
   }
 
   void send_wl_command(string cmd) {
     //std::cout << "send wl command\n";
-    if (mlp==nullptr) {
+    if (!mlp) {
       //std::cout << "initiate link\n";
       initiate_link();
     }
-    if (mlp == nullptr) {
+    if (!mlp) {
       //std::cout << "still null??\n";
     }
+    
     //std::cout << "put function\n";
     MLPutFunction(mlp, "EvaluatePacket", 1);
     MLPutFunction(mlp, "ToExpression", 1);
@@ -291,9 +295,16 @@ namespace lean {
   }
   
   expr expr_from_wl_link() {
+    //std::cout << "mlpptr: " << mlpptr << "\n";
+    //std::cout << "bm1\n";
+    
+    //std::cout << "bm2\n";
+    //std::cout << MLGetType(mlp) << "\n";
+    //std::cout << "bm2.4\n";
     //while (MLNextPacket(mlp) != RETURNPKT) MLNewPacket(mlp);
+    //std::cout << "bm3\n";
     auto tp = MLGetType(mlp);
-    // std::cout << "tp: " << tp << "\n";
+    //std::cout << "tp: " << tp << "\n";
     switch (tp) {
     case MLTKSTR: { // Return a string wrapped in a local variable. This should be unpacked immediately
       const char *s;
@@ -332,19 +343,22 @@ namespace lean {
       break;
     }
     default:
+      //std::cout << "hit default case: tp=" << tp << "\n";
       throw exception("MathLink type not understood");
     }
+    throw exception("MathLink type not understood");
     // error
   }
 
   expr wl_process_cmd(string cmd) {
-    //std::cout << "starting process_cmd\nProcessing: " << cmd << "\n\n";
+    //std::cout << "starting process_cmd\n";//Processing: " << cmd << "\n\n";
     send_wl_command(cmd);
     //std::cout << "sent command!\n";
     expr e = expr_from_wl_link();
     //std::cout << "got expr: " << e << "\n";
     //reset_link(mlp);
     //std::cout << "reset link!\n";
+    MLNewPacket(mlp);
     return e;
   }
   
