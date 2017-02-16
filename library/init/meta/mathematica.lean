@@ -193,14 +193,15 @@ section translation
 open rb_lmap
 meta instance : has_ordering string := ⟨λ s1 s2, name.cmp s1 s2⟩
 
+meta def trans_env := rb_map string expr
+meta def trans_env.empty := rb_map.mk string expr
+
 meta def sym_trans_pexpr_rule := string × pexpr
 meta def sym_trans_expr_rule := string × expr
-meta def app_trans_pexpr_keyed_rule := string × (list mmexpr → tactic pexpr)
-meta def app_trans_expr_keyed_rule := string × (list mmexpr → tactic expr)
-meta def app_trans_pexpr_unkeyed_rule := mmexpr → list mmexpr → tactic pexpr
-meta def app_trans_expr_unkeyed_rule := mmexpr → list mmexpr → tactic expr
-
-meta def trans_env := rb_map string expr
+meta def app_trans_pexpr_keyed_rule := string × (trans_env → list mmexpr → tactic pexpr)
+meta def app_trans_expr_keyed_rule := string × (trans_env → list mmexpr → tactic expr)
+meta def app_trans_pexpr_unkeyed_rule := trans_env → mmexpr → list mmexpr → tactic pexpr
+meta def app_trans_expr_unkeyed_rule := trans_env → mmexpr → list mmexpr → tactic expr
 
 -- databases
 
@@ -218,24 +219,24 @@ meta def mk_sym_trans_expr_db (l : list name) : tactic (rb_lmap string expr) := 
   l,
  return $ rb_lmap.of_list dcls
 
-meta def mk_app_trans_pexpr_keyed_db (l : list name) : tactic (rb_lmap string (list mmexpr → tactic pexpr)) := do
+meta def mk_app_trans_pexpr_keyed_db (l : list name) : tactic (rb_lmap string (trans_env → list mmexpr → tactic pexpr)) := do
  dcls ← monad.mapm
   (λ n, do c ← mk_const n,
    eval_expr app_trans_pexpr_keyed_rule c) 
   l,
  return $ rb_lmap.of_list dcls
 
-meta def mk_app_trans_expr_keyed_db (l : list name) : tactic (rb_lmap string (list mmexpr → tactic expr)) := do
+meta def mk_app_trans_expr_keyed_db (l : list name) : tactic (rb_lmap string (trans_env → list mmexpr → tactic expr)) := do
  dcls ← monad.mapm
   (λ n, do c ← mk_const n,
    eval_expr app_trans_expr_keyed_rule c)
   l,
  return $ rb_lmap.of_list dcls
 
-meta def mk_app_trans_pexpr_unkeyed_db (l : list name) : tactic (list (mmexpr → list mmexpr → tactic pexpr)) :=
+meta def mk_app_trans_pexpr_unkeyed_db (l : list name) : tactic (list (trans_env → mmexpr → list mmexpr → tactic pexpr)) :=
 monad.mapm (λ n, do c ← mk_const n, eval_expr app_trans_pexpr_unkeyed_rule c) l
 
-meta def mk_app_trans_expr_unkeyed_db (l : list name) : tactic (list (mmexpr → list mmexpr → tactic expr)) :=
+meta def mk_app_trans_expr_unkeyed_db (l : list name) : tactic (list (trans_env → mmexpr → list mmexpr → tactic expr)) :=
 monad.mapm (λ n, do c ← mk_const n, eval_expr app_trans_expr_unkeyed_rule c) l
 
 meta def sym_to_pexpr_rule : caching_user_attribute (rb_lmap string pexpr) :=
@@ -244,16 +245,16 @@ meta def sym_to_pexpr_rule : caching_user_attribute (rb_lmap string pexpr) :=
 meta def sym_to_expr_rule : caching_user_attribute (rb_lmap string expr) :=
 ⟨`sym_to_expr, "rule for translating a mmexpr.sym to a expr", mk_sym_trans_expr_db, []⟩ 
 
-meta def app_to_pexpr_keyed_rule : caching_user_attribute (rb_lmap string (list mmexpr → tactic pexpr)) :=
+meta def app_to_pexpr_keyed_rule : caching_user_attribute (rb_lmap string (trans_env → list mmexpr → tactic pexpr)) :=
 ⟨`app_to_pexpr_keyed, "rule for translating a mmexpr.app to a pexpr", mk_app_trans_pexpr_keyed_db, []⟩ 
 
-meta def app_to_expr_keyed_rule : caching_user_attribute (rb_lmap string (list mmexpr → tactic expr)) :=
+meta def app_to_expr_keyed_rule : caching_user_attribute (rb_lmap string (trans_env → list mmexpr → tactic expr)) :=
 ⟨`app_to_expr_keyed, "rule for translating a mmexpr.app to a expr", mk_app_trans_expr_keyed_db, []⟩ 
 
-meta def app_to_pexpr_unkeyed_rule : caching_user_attribute (list (mmexpr → list mmexpr → tactic pexpr)) :=
+meta def app_to_pexpr_unkeyed_rule : caching_user_attribute (list (trans_env → mmexpr → list mmexpr → tactic pexpr)) :=
 ⟨`app_to_pexpr_unkeyed, "rule for translating a mmexpr.app to a pexpr", mk_app_trans_pexpr_unkeyed_db, []⟩ 
 
-meta def app_to_expr_unkeyed_rule : caching_user_attribute (list (mmexpr → list mmexpr → tactic expr)) :=
+meta def app_to_expr_unkeyed_rule : caching_user_attribute (list (trans_env → mmexpr → list mmexpr → tactic expr)) :=
 ⟨`app_to_expr_unkeyed, "rule for translating a mmexpr.app to a expr", mk_app_trans_expr_unkeyed_db, []⟩ 
 
 run_command attribute.register `sym_to_pexpr_rule
@@ -264,66 +265,72 @@ run_command attribute.register `app_to_pexpr_unkeyed_rule
 run_command attribute.register `app_to_expr_unkeyed_rule
 
 
-meta def expr_of_mmexpr_app_keyed : mmexpr → list mmexpr → tactic expr
+meta def expr_of_mmexpr_app_keyed (env : trans_env) : mmexpr → list mmexpr → tactic expr
  | (sym hd) args := do 
  expr_db ← caching_user_attribute.get_cache app_to_expr_keyed_rule,
- tactic.first (list.map (λ f : list mmexpr → tactic expr, f args) (find expr_db hd)) -- why is type for f needed?
+ tactic.first (list.map (λ f : trans_env → list mmexpr → tactic expr, f env args) (find expr_db hd)) -- why is type for f needed?
  | (str s) args := failed
  | (mint i) args := failed
  | (app i j) args := failed
 
-meta def expr_of_mmexpr_app_unkeyed (hd : mmexpr) (args : list mmexpr) : tactic expr := do
+meta def expr_of_mmexpr_app_unkeyed (env : trans_env) (hd : mmexpr) (args : list mmexpr) : tactic expr := do
  expr_db ← caching_user_attribute.get_cache app_to_expr_unkeyed_rule,
- tactic.first (list.map (λ f : mmexpr → list mmexpr → tactic expr, f hd args) expr_db)
+ tactic.first (list.map (λ f : trans_env → mmexpr → list mmexpr → tactic expr, f env hd args) expr_db)
 
-meta def expr_of_mmexpr_app_decomp (expr_of_mmexpr : mmexpr → tactic expr)
+meta def expr_of_mmexpr_app_decomp (env : trans_env) (expr_of_mmexpr : trans_env → mmexpr → tactic expr)
          (hd : mmexpr) (args : list mmexpr) : tactic expr := do
- hs ← expr_of_mmexpr hd,
- args' ← monad.mapm expr_of_mmexpr args,
+ hs ← expr_of_mmexpr env hd,
+ args' ← monad.mapm (expr_of_mmexpr env) args,
  return $ expr.mk_app hs args'
 
-meta def expr_of_mmexpr_app (expr_of_mmexpr : mmexpr → tactic expr)
+meta def expr_of_mmexpr_app (env : trans_env) (expr_of_mmexpr : trans_env → mmexpr → tactic expr)
          (m : mmexpr) (l : list mmexpr) : tactic expr :=
- expr_of_mmexpr_app_keyed m l <|> 
- expr_of_mmexpr_app_unkeyed m l <|> 
- expr_of_mmexpr_app_decomp expr_of_mmexpr m l
+ expr_of_mmexpr_app_keyed env m l <|> 
+ expr_of_mmexpr_app_unkeyed env m l <|> 
+ expr_of_mmexpr_app_decomp env expr_of_mmexpr m l
 
-meta def pexpr_of_mmexpr_app_keyed : mmexpr → list mmexpr → tactic pexpr
+meta def pexpr_of_mmexpr_app_keyed (env : trans_env) : mmexpr → list mmexpr → tactic pexpr
  | (sym hd) args := do
  expr_db ← caching_user_attribute.get_cache app_to_pexpr_keyed_rule,
- tactic.first (list.map (λ f : list mmexpr → tactic pexpr, f args) (find expr_db hd)) -- why is type for f needed?
+ tactic.first (list.map (λ f : trans_env → list mmexpr → tactic pexpr, f env args) (find expr_db hd)) -- why is type for f needed?
  | (str s) args := failed
  | (mint i) args := failed
  | (app i j) args := failed
 
-meta def pexpr_of_mmexpr_app_unkeyed (hd : mmexpr) (args : list mmexpr) : tactic pexpr := do
+meta def pexpr_of_mmexpr_app_unkeyed (env : trans_env) (hd : mmexpr) (args : list mmexpr) : tactic pexpr := do
  expr_db ← caching_user_attribute.get_cache app_to_pexpr_unkeyed_rule,
- tactic.first (list.map (λ f : mmexpr → list mmexpr → tactic pexpr, f hd args) expr_db)
+ tactic.first (list.map (λ f : trans_env → mmexpr → list mmexpr → tactic pexpr, f env hd args) expr_db)
 
-meta def pexpr_of_mmexpr_app_decomp (pexpr_of_mmexpr : mmexpr → tactic pexpr)
+meta def pexpr_of_mmexpr_app_decomp (env : trans_env) (pexpr_of_mmexpr : trans_env → mmexpr → tactic pexpr)
          (hd : mmexpr) (args : list mmexpr) : tactic pexpr := do
- hs ← pexpr_of_mmexpr hd,
- args' ← monad.mapm pexpr_of_mmexpr args,
+ hs ← pexpr_of_mmexpr env hd,
+ args' ← monad.mapm (pexpr_of_mmexpr env) args,
  return $ pexpr_mk_app hs args'
 
-meta def pexpr_of_mmexpr_app (pexpr_of_mmexpr : mmexpr → tactic pexpr)
+meta def pexpr_of_mmexpr_app (env : trans_env) (pexpr_of_mmexpr : trans_env → mmexpr → tactic pexpr)
          (m : mmexpr) (l : list mmexpr) : tactic pexpr :=
- pexpr_of_mmexpr_app_keyed  m l <|> 
- pexpr_of_mmexpr_app_unkeyed  m l <|> 
- pexpr_of_mmexpr_app_decomp pexpr_of_mmexpr m l
+ pexpr_of_mmexpr_app_keyed env m l <|> 
+ pexpr_of_mmexpr_app_unkeyed env m l <|> 
+ pexpr_of_mmexpr_app_decomp env pexpr_of_mmexpr m l
 
-meta def expr_of_mmexpr : mmexpr → tactic expr
-| (sym s) := do
+meta def find_in_env (env : trans_env) (sym : string) : tactic expr :=
+match rb_map.find env sym with
+| some e := return e
+| none   := failed
+end
+
+meta def expr_of_mmexpr : trans_env → mmexpr → tactic expr
+| env (sym s) := find_in_env env s <|> do
   expr_db ← caching_user_attribute.get_cache sym_to_expr_rule,
   match find expr_db s with
   | (h :: t) := return h
   | [] := fail ("Couldn't find translation for sym \"" ++ s ++ "\"")
  end
-| (str s) := string.to_expr s
-| (mint i) := failed
-| (app hd args) := expr_of_mmexpr_app expr_of_mmexpr hd args 
+| env (str s) := string.to_expr s
+| env (mint i) := failed
+| env (app hd args) := expr_of_mmexpr_app env expr_of_mmexpr hd args 
 
-meta def pexpr_of_mmexpr_aux (pexpr_of_mmexpr : mmexpr → tactic pexpr) : mmexpr → tactic pexpr
+meta def pexpr_of_mmexpr_aux (env : trans_env) (pexpr_of_mmexpr : trans_env → mmexpr → tactic pexpr) : mmexpr → tactic pexpr
 | (sym s) := do
   expr_db ← caching_user_attribute.get_cache sym_to_pexpr_rule,
   match find expr_db s with
@@ -332,10 +339,11 @@ meta def pexpr_of_mmexpr_aux (pexpr_of_mmexpr : mmexpr → tactic pexpr) : mmexp
  end
 | (str s) := fail "unreachable, str case shouldn't reach pexpr_of_mmexpr_aux"
 | (mint i) := return $ pexpr_of_signed_num i
-| (app hd args) := pexpr_of_mmexpr_app pexpr_of_mmexpr hd args 
+| (app hd args) := pexpr_of_mmexpr_app env pexpr_of_mmexpr hd args 
 
-meta def pexpr_of_mmexpr : mmexpr → tactic pexpr := 
-λ m, (do e ← expr_of_mmexpr m, return `(%%e)) <|> (pexpr_of_mmexpr_aux pexpr_of_mmexpr m)
+
+meta def pexpr_of_mmexpr : trans_env → mmexpr → tactic pexpr := 
+λ env m, (do e ← expr_of_mmexpr env m, return `(%%e)) <|> (pexpr_of_mmexpr_aux env pexpr_of_mmexpr m)
 
 end translation
 
@@ -396,7 +404,7 @@ section transl_expr_instances
 @[app_to_expr_keyed]
 meta def mmexpr_var_to_expr : app_trans_expr_keyed_rule :=
 ⟨"LeanVar", 
-λ args, match args with
+λ _ args, match args with
 | [mint i] := return $ var (unsigned_of_signed_num i)
 | _        := failed
 end⟩ 
@@ -404,7 +412,7 @@ end⟩
 @[app_to_expr_keyed]
 meta def mmexpr_sort_to_expr : app_trans_expr_keyed_rule :=
 ⟨"LeanSort",
-λ args, match args with
+λ _ args, match args with
 | [m] := do lvl ← level_of_mmexpr m, return $ sort lvl
 | _   := failed
 end⟩
@@ -412,7 +420,7 @@ end⟩
 @[app_to_expr_keyed]
 meta def mmexpr_const_to_expr : app_trans_expr_keyed_rule :=
 ⟨"LeanConst",
-λ args, match args with
+λ _ args, match args with
 | [nm, lvls] := do nm' ← name_of_mmexpr nm, lvls' ← level_list_of_mmexpr lvls, return $ const nm' lvls'
 | _   := failed
 end⟩
@@ -420,20 +428,20 @@ end⟩
 @[app_to_expr_keyed]
 meta def mmexpr_mvar_to_expr : app_trans_expr_keyed_rule :=
 ⟨"LeanMetaVar",
-λ args, match args with
-| [nm, tp] := do nm' ← name_of_mmexpr nm, tp' ← expr_of_mmexpr tp, return $ mvar nm' tp'
+λ env args, match args with
+| [nm, tp] := do nm' ← name_of_mmexpr nm, tp' ← expr_of_mmexpr env tp, return $ mvar nm' tp'
 | _   := failed
 end⟩
 
 @[app_to_expr_keyed]
 meta def mmexpr_local_to_expr : app_trans_expr_keyed_rule :=
 ⟨"LeanLocal",
-λ args, match args with
+λ env args, match args with
 | [nm, ppnm, bi, tp] := do 
   nm' ← name_of_mmexpr nm, 
   ppnm' ← name_of_mmexpr ppnm, 
   bi' ← binder_info_of_mmexpr bi, 
-  tp' ← expr_of_mmexpr tp, 
+  tp' ← expr_of_mmexpr env tp, 
   return $ expr.local_const nm' ppnm' bi' tp'
 | _   := failed
 end⟩
@@ -441,20 +449,20 @@ end⟩
 @[app_to_expr_keyed]
 meta def mmexpr_app_to_expr : app_trans_expr_keyed_rule :=
 ⟨"LeanApp",
-λ args, match args with
-| [hd, bd] := do hd' ← expr_of_mmexpr hd, bd' ← expr_of_mmexpr bd, return $ expr.app hd' bd'
+λ env args, match args with
+| [hd, bd] := do hd' ← expr_of_mmexpr env hd, bd' ← expr_of_mmexpr env bd, return $ expr.app hd' bd'
 | _   := failed
 end⟩
 
 @[app_to_expr_keyed]
 meta def mmexpr_lam_to_expr : app_trans_expr_keyed_rule :=
 ⟨"LeanLambda",
-λ args, match args with
+λ env args, match args with
 | [nm, bi, tp, bd] := do 
   nm' ← name_of_mmexpr nm, 
   bi' ← binder_info_of_mmexpr bi, 
-  tp' ← expr_of_mmexpr tp,
-  bd' ← expr_of_mmexpr bd,
+  tp' ← expr_of_mmexpr env tp,
+  bd' ← expr_of_mmexpr env bd,
   return $ lam nm' bi' tp' bd'
 | _   := failed
 end⟩
@@ -462,12 +470,12 @@ end⟩
 @[app_to_expr_keyed]
 meta def mmexpr_pi_to_expr : app_trans_expr_keyed_rule :=
 ⟨"LeanPi",
-λ args, match args with
+λ env args, match args with
 | [nm, bi, tp, bd] := do 
   nm' ← name_of_mmexpr nm, 
   bi' ← binder_info_of_mmexpr bi, 
-  tp' ← expr_of_mmexpr tp,
-  bd' ← expr_of_mmexpr bd,
+  tp' ← expr_of_mmexpr env tp,
+  bd' ← expr_of_mmexpr env bd,
   return $ lam nm' bi' tp' bd'
 | _ := failed
 end⟩
@@ -486,17 +494,78 @@ meta def pexpr_fold_op (dflt op : pexpr) : list pexpr → pexpr
 @[app_to_pexpr_keyed]
 meta def add_to_pexpr : app_trans_pexpr_keyed_rule :=
 ⟨"Plus", 
-λ args, do args' ← monad.for args pexpr_of_mmexpr, return $ pexpr_fold_op `(0) `(add) args'⟩
+λ env args, do args' ← monad.for args (pexpr_of_mmexpr env), return $ pexpr_fold_op `(0) `(add) args'⟩
 
 @[app_to_pexpr_keyed]
 meta def mul_to_pexpr : app_trans_pexpr_keyed_rule :=
 ⟨"Times", 
-λ args, do args' ← monad.for args pexpr_of_mmexpr, return $ pexpr_fold_op `(0) `(mul) args'⟩
+λ env args, do args' ← monad.for args (pexpr_of_mmexpr env), return $ pexpr_fold_op `(0) `(mul) args'⟩
 
 @[app_to_pexpr_keyed]
 meta def list_to_pexpr : app_trans_pexpr_keyed_rule := 
 ⟨"List",
-λ args, do args' ← monad.for args pexpr_of_mmexpr, return $ list.foldr (λ h t, `(%%h :: %%t)) `([]) args'⟩
+λ env args, do args' ← monad.for args (pexpr_of_mmexpr env), return $ list.foldr (λ h t, `(%%h :: %%t)) `([]) args'⟩
+
+meta def mk_local_const_placeholder (n : name) : expr :=
+let t := pexpr.mk_placeholder in
+local_const n n binder_info.default (pexpr.to_raw_expr t)
+
+private meta def sym_to_lcp : mmexpr → tactic (string × expr)
+| (sym s) := return $ (s, mk_local_const_placeholder s)
+| _ := failed
+
+meta def mk_lambdas (l : list expr) (b : pexpr) : pexpr :=
+pexpr.of_raw_expr (lambdas l (pexpr.to_raw_expr b))
+
+meta def mk_lambda' (x : expr) (b : pexpr) : pexpr :=
+pexpr.of_raw_expr (lambdas [x] (pexpr.to_raw_expr b))
+
+meta def rb_map.insert_list {key : Type} {data : Type} : rb_map key data → list (key × data) → rb_map key data
+| m [] := m
+| m ((k, d) :: t) := rb_map.insert_list (rb_map.insert m k d) t
+
+
+
+@[app_to_pexpr_keyed]
+meta def function_to_pexpr : app_trans_pexpr_keyed_rule :=
+⟨"Function",
+λ env args, match args with
+| [v1, bd] :=
+  match v1 with
+  | sym x := do
+    v ← return $ mk_local_const_placeholder x, 
+    bd' ← pexpr_of_mmexpr (env^.insert x v) bd,
+    return $ mk_lambda' v bd' 
+  | app (sym "List") l := do
+    vs ← monad.for l sym_to_lcp,
+    bd' ← pexpr_of_mmexpr (env^.insert_list vs) bd,
+    return $ mk_lambdas (list.map prod.snd vs) bd'
+  | str s := failed
+  | mint i := failed
+  | app t l := failed
+  end
+| _ := failed
+end
+⟩
+-- this fails because of a bug in eqn compiler
+/-λ env args, match args with
+| [sym x, bd] := do
+  v ← return $ mk_local_const_placeholder x, 
+  bd' ← pexpr_of_mmexpr (env^.insert x v) bd,
+  return $ mk_lambda' v bd' 
+  --return $ mk_lambda (pexpr.of_raw_expr v) bd
+| [app (sym "List") l, bd] := do
+  vs ← monad.for l sym_to_lcp,
+  bd' ← pexpr_of_mmexpr (env^.insert_list vs) bd,
+  return $ mk_lambdas (list.map prod.snd vs) bd'
+| _ := failed
+end⟩-/
+
+--TODO : functions with anonymous binders
+
+@[sym_to_pexpr]
+meta def rat_to_pexpr : sym_trans_pexpr_rule :=
+⟨"Rational", `(div)⟩ 
 
 end transl_expr_instances
 
@@ -505,14 +574,13 @@ namespace tactic
 
 meta def run_mm_command_on_expr (cmd : string → string) (e : expr) : tactic pexpr := do
  rval ← wl_execute_str $ cmd $ mathematica_form_of_expr e,
- rval' ← eval_expr mmexpr rval,
- pexpr_of_mmexpr rval'
+  rval' ← eval_expr mmexpr rval,
+  pexpr_of_mmexpr trans_env.empty rval'
 
 meta def run_mm_command_on_expr_using (cmd : string → string) (e : expr) (path : string) : tactic pexpr := do
  rval ← wl_execute_str ("Get[\"" ++ path ++ "\"]; " ++ (cmd (mathematica_form_of_expr e))),
- --trace "rval: ", trace rval,
  rval' ← eval_expr mmexpr rval,
- pexpr_of_mmexpr rval'
+ pexpr_of_mmexpr trans_env.empty rval'
 
 meta def run_mm_command_on_exprs_using (cmd : string → string → string) (e1 e2 : expr) (path : string) :
      tactic pexpr := 
@@ -520,6 +588,6 @@ do
  rval ← wl_execute_str ("Get[\"" ++ path ++ "\"]; " ++ 
           (cmd (mathematica_form_of_expr e1) (mathematica_form_of_expr e2))),
  rval' ← eval_expr mmexpr rval,
- pexpr_of_mmexpr rval'
+ pexpr_of_mmexpr trans_env.empty rval'
 
 end tactic
