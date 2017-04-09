@@ -8,9 +8,13 @@ Author: Robert Y. Lewis
 #include "library/type_context.h"
 #include <string>
 #include <unordered_map>
+//#include "wl_get_executable.h"
 
 
 namespace lean {
   expr wl_process_cmd(std::string cmd);
+  expr wl_process_global_cmd(std::string cmd);
+
+  std::string get_mm_extras_path();
   
 }

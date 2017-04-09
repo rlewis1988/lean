@@ -10,24 +10,34 @@ Author: Robert Y. Lewis
 #include "library/placeholder.h"
 #include "kernel/abstract.h"
 #include "library/string.h"
+#include "library/num.h"
 #include <fstream>
 #include <string>
+#include "wl_get_executable.h"
 
 using namespace std;
 
 namespace lean {
 
+  string get_mm_extras_path() {
+    return get_mm_directory();
+  }
 
   MLINK * mlpptr = nullptr;
   MLEnvironment * mlpenvptr = nullptr;
   MLINK mlp;
   MLEnvironment mlpenv;
+  int mm_run_cntr = 0;
   
-  static const char* fns_path = "~/lean/lean/extras/mathematica/ml_lean_form.m";
+  //static const char* fns_path = (get_mm_directory() + string("/ml_lean_form.m")).c_str();
 
   void initiate_link() {
     int pid;
-    char * args[5] = {"-linkname", "math -mathlink", "-linkmode", "launch",  NULL};
+    string cmd2 = get_mm_executable() + string(" -mathlink");
+    char * cmd3 = (char*)cmd2.c_str();
+    string path1 = get_mm_directory() + string("/ml_lean_form.m");
+    char * fns_path = (char*)path1.c_str();
+    char * args[5] = {"-linkname", cmd3, "-linkmode", "launch",  NULL};
     MLEnvironment mlpe = MLInitialize(NULL);
     if (mlpe==NULL) {throw exception("mathlink failed at 2 : null env");}
     int open_error;
@@ -41,7 +51,6 @@ namespace lean {
     while (MLNextPacket(ml) != RETURNPKT) MLNewPacket(ml);
     MLGetInteger(ml, &pid);
     //printf("process id: %d\n", pid);
-
     MLPutFunction(ml, "Get", 1);
     MLPutString(ml, fns_path);
     MLEndPacket(ml);
@@ -58,7 +67,7 @@ namespace lean {
     }
     if (!mlp) {
       throw exception("failed to initiate link to Mathematica");
-    }    
+    }
     MLPutFunction(mlp, "EvaluatePacket", 1);
     MLPutFunction(mlp, "ToExpression", 1);
     MLPutString(mlp, cmd.c_str());
@@ -107,6 +116,26 @@ namespace lean {
   expr lean_app_of_expr_of_list(expr hd, expr args) {
     return mk_app(mk_constant(name("mmexpr", "app")), hd, args);
   }
+
+  expr lean_float_of_ints(int sign, int mantisa, int exponent) {
+    expr esign = to_nat_expr(mpz(sign));
+    expr emant = to_nat_expr(mpz(mantisa));
+    expr eexp  = to_nat_expr(mpz(exponent));
+    return mk_app(mk_constant(name("float", "mk")), esign, emant, eexp);
+  }
+
+  expr lean_mreal_of_ints(int sign, int mantisa, int exponent) {
+    return mk_app(mk_constant(name("mmexpr", "mreal")), lean_float_of_ints(sign, mantisa, exponent));
+  }
+
+  typedef union {
+  float f;
+  struct {
+    unsigned int mantisa : 23;
+    unsigned int exponent : 8;
+    unsigned int sign : 1;
+  } parts;
+  } double_cast;
   
   expr expr_from_wl_link() {
     auto tp = MLGetType(mlp);
@@ -138,7 +167,13 @@ namespace lean {
     case MLTKREAL: {
       double d;
       MLGetReal(mlp, &d);
-      throw exception("cannot handle reals from mathematica");
+      double_cast d1;
+      d1.f = d;
+      printf("sign = %x\n",d1.parts.sign);
+      printf("exponent = %x\n",d1.parts.exponent);
+      printf("mantisa = %x\n",d1.parts.mantisa);
+      return lean_mreal_of_ints(d1.parts.sign, d1.parts.mantisa, d1.parts.exponent);
+      //throw exception("cannot handle reals from mathematica");
       break;
     }
     case MLTKSYM: {
@@ -154,10 +189,24 @@ namespace lean {
   }
 
   expr wl_process_cmd(string cmd) {
+    string ctx_nm = "LeanLink" + std::to_string(mm_run_cntr);
+    mm_run_cntr++;
+    send_wl_command("Begin[\""+ctx_nm+"`\"];");
+    MLNewPacket(mlp);
+    send_wl_command(cmd);
+    expr e = expr_from_wl_link();
+    MLNewPacket(mlp);
+    send_wl_command("End[];");
+    MLNewPacket(mlp);
+    return e;
+  }
+
+
+  expr wl_process_global_cmd(string cmd) {
     send_wl_command(cmd);
     expr e = expr_from_wl_link();
     MLNewPacket(mlp);
     return e;
-  }
+  }  
   
 }

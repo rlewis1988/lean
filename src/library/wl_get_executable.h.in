@@ -1,0 +1,15 @@
+#pragma once
+#ifndef WL_GET_EXECUTABLE_H
+#define WL_GET_EXECUTABLE_H
+#endif
+#include <string>
+
+std::string get_mm_executable()
+{
+  return "@_execDir@";
+}
+
+std::string get_mm_directory()
+{
+  return "@_mmExtraDir@";
+}
