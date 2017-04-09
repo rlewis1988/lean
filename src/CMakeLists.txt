@@ -135,7 +135,6 @@ if((${CYGWIN} EQUAL "1") OR (${CMAKE_SYSTEM_NAME} MATCHES "Windows"))
   set(EXTRA_UTIL_LIBS ${EXTRA_UTIL_LIBS} -lpsapi)
 endif()
 
-set(LEAN_EXTRA_LINKER_FLAGS "-L/usr/local/Wolfram/Mathematica/11.0/SystemFiles/Links/MathLink/DeveloperKit/Linux-x86-64/CompilerAdditions ${LEAN_EXTRA_LINKER_FLAGS} ")
 
 if("${CYGWIN}" EQUAL "1")
   set(LEAN_EXTRA_CXX_FLAGS "${LEAN_EXTRA_CXX_FLAGS} -D LEAN_CYGWIN")
@@ -218,6 +217,34 @@ if (SPLIT_STACK)
   endif()
 endif()
 
+
+find_package(Mathematica)
+if (Mathematica_MathLink_DEFINITIONS)
+  add_definitions(${Mathematica_MathLink_DEFINITIONS})
+endif()
+if (${Mathematica_FOUND})
+  message(STATUS "Mathematica Version ${Mathematica_VERSION}")
+  include_directories(${Mathematica_INCLUDE_DIRS})
+  get_filename_component(_libraryDir ${Mathematica_MathLink_LIBRARY} DIRECTORY)
+  get_filename_component(_libraryName ${Mathematica_MathLink_LIBRARY} NAME)
+  _get_mathlink_library_names(_tempNames)
+  string(SUBSTRING "${_libraryName}" 3 -1 _libraryNameShort)
+  string(REGEX REPLACE "(lib)?(.*)(\\.).*" "\\2" _mmLibName ${_libraryName})
+  get_filename_component(_execDir ${Mathematica_KERNEL_EXECUTABLE} DIRECTORY)
+  if (APPLE)  #${CMAKE_SYSTEM_NAME} MATCHES "MAC OSX")
+    set(_mmLibName "MLi4")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -framework Foundation")
+  endif()
+  set(_execDir "${Mathematica_KERNEL_EXECUTABLE}")
+  set(_mmExtraDir "${CMAKE_CURRENT_SOURCE_DIR}/../extras/mathematica/")
+  #message(STATUS "LF ${Mathematica_KERNEL_EXECUTABLE} LF")
+  link_directories(${_libraryDir})
+  set(EXTRA_LIBS ${EXTRA_LIBS} ${_mmLibName})
+  configure_file(library/wl_get_executable.h.in ${CMAKE_BINARY_DIR}/generated/wl_get_executable.h)
+  include_directories(${CMAKE_BINARY_DIR}/generated/)
+endif()
+
+
 # Test coverage
 if(TESTCOV)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage")
@@ -268,7 +295,9 @@ else()
     set(EXTRA_LIBS ${EXTRA_LIBS} ${GMP_LIBRARIES})
 endif()
 
-set(EXTRA_LIBS ${EXTRA_LIBS} "ML64i4" "uuid" "dl" "m" "rt")
+if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")  
+  set(EXTRA_LIBS ${EXTRA_LIBS} uuid dl m rt)
+endif()
 
 # DL
 if (EMSCRIPTEN)

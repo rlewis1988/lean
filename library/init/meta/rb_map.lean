@@ -53,6 +53,13 @@ fold m (mk _ _) $ λa b m', if f b then insert m' a b else m'
 meta def mfold {key data α :Type} {m : Type → Type} [monad m] (mp : rb_map key data) (a : α) (fn : key → data → α → m α) : m α :=
 mp.fold (return a) (λ k d act, act >>= fn k d)
 
+meta def union {key data : Type} (m1 m2 : rb_map key data) : rb_map key data :=
+m1^.fold m2 (λ k d m, m^.insert k d)
+
+meta def insert_list {key : Type} {data : Type} : rb_map key data → list (key × data) → rb_map key data
+| m [] := m
+| m ((k, d) :: t) := insert_list (rb_map.insert m k d) t
+
 end rb_map
 
 meta def mk_rb_map {key data : Type} [has_ordering key] : rb_map key data :=
@@ -187,6 +194,7 @@ s.fold [] list.cons
 meta instance {key} [has_to_format key] : has_to_format (rb_set key) :=
 ⟨λ m, group $ to_fmt "{" ++ nest 1 (fst (fold m (to_fmt "", tt) (λ k p, (fst p ++ format_key k (snd p), ff)))) ++
               to_fmt "}"⟩
+
 end rb_set
 
 @[reducible] meta def expr_set := rb_set expr
