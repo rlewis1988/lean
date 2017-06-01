@@ -6,7 +6,7 @@ Authors: Jeremy Avigad
 The integers, with addition, multiplication, and subtraction.
 -/
 prelude
-import init.data.nat.lemmas init.meta.transfer
+import init.data.nat.lemmas init.data.nat.gcd init.meta.transfer init.data.list
 open nat
 
 /- the type, coercions, and notation -/
@@ -192,6 +192,41 @@ lemma nat_abs_eq : Π (a : ℤ), a = nat_abs a ∨ a = -(nat_abs a)
 | -[1+ m']   := or.inr rfl
 
 lemma eq_coe_or_neg (a : ℤ) : ∃n : ℕ, a = n ∨ a = -n := ⟨_, nat_abs_eq a⟩
+
+/- Quotient and remainder -/
+
+protected def div : ℤ → ℤ → ℤ
+| (m : ℕ) (n : ℕ) := (m / n : ℕ)
+| (m : ℕ) -[1+ n] := -(m / succ n : ℕ)
+| -[1+ m] (n : ℕ) := -(succ m / n : ℕ)
+| -[1+ m] -[1+ n] := (succ m / succ n : ℕ)
+
+def nat_mod : ℤ → ℕ → ℕ
+| (m : ℕ) n := m % n
+| -[1+ m] n := n - succ (m % n)
+
+protected def mod : ℤ → ℤ → ℤ
+| m (n : ℕ) := nat_mod m n
+| m -[1+ n] := nat_mod (-m) (succ n)
+
+def quot : ℤ → ℤ → ℤ
+| (of_nat m) (of_nat n) := of_nat (m / n)
+| (of_nat m) -[1+ n]    := -of_nat (m / succ n)
+| -[1+ m]    (of_nat n) := -of_nat (succ m / n)
+| -[1+ m]    -[1+ n]    := of_nat (succ m / succ n)
+
+def rem : ℤ → ℤ → ℤ
+| (of_nat m) (of_nat n) := of_nat (m % n)
+| (of_nat m) -[1+ n]    := of_nat (m % succ n)
+| -[1+ m]    (of_nat n) := -of_nat (succ m % n)
+| -[1+ m]    -[1+ n]    := -of_nat (succ m % succ n)
+
+instance : has_div ℤ := ⟨int.div⟩
+instance : has_mod ℤ := ⟨int.mod⟩
+
+/- gcd -/
+
+def gcd (m n : ℤ) : ℕ := gcd (nat_abs m) (nat_abs n)
 
 /-- Relator between integers and pairs of natural numbers -/
 
