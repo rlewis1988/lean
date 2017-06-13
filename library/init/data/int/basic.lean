@@ -197,8 +197,8 @@ lemma eq_coe_or_neg (a : ℤ) : ∃n : ℕ, a = n ∨ a = -n := ⟨_, nat_abs_eq
 
 protected def div : ℤ → ℤ → ℤ
 | (m : ℕ) (n : ℕ) := (m / n : ℕ)
-| (m : ℕ) -[1+ n] := -(m / succ n : ℕ)
-| -[1+ m] (n : ℕ) := -(succ m / n : ℕ)
+| (m : ℕ) -[1+ n] := -[1+ m / succ n]
+| -[1+ m] (n : ℕ) := -[1+ succ m / n]
 | -[1+ m] -[1+ n] := (succ m / succ n : ℕ)
 
 def nat_mod : ℤ → ℕ → ℕ
@@ -416,5 +416,11 @@ by rw -int.sub_nat_nat_eq_coe; exact sub_nat_nat_elim m n
   (λm n i, to_nat i = m - n)
   (λi n, by rw [nat.add_sub_cancel_left]; refl)
   (λi n, by rw [add_assoc, nat.sub_eq_zero_of_le (nat.le_add_right _ _)]; refl)
+
+#eval do m ← list.range 5,
+         n ← list.range 5,
+         let x : ℤ := m - 2,
+         let y : ℤ := n - 2,
+         return (int.div x y, int.div' x y)
 
 end int
