@@ -195,20 +195,39 @@ lemma eq_coe_or_neg (a : ℤ) : ∃n : ℕ, a = n ∨ a = -n := ⟨_, nat_abs_eq
 
 /- Quotient and remainder -/
 
-protected def div : ℤ → ℤ → ℤ
-| (m : ℕ) (n : ℕ) := (m / n : ℕ)
-| (m : ℕ) -[1+ n] := -[1+ m / succ n]
-| -[1+ m] (n : ℕ) := -[1+ succ m / n]
-| -[1+ m] -[1+ n] := (succ m / succ n : ℕ)
+-- There are three main conventions for integer division,
+-- referred here as the E, F, T rounding conventions.
+-- All three pairs satisfy the identity x % y + (x / y) * y = x
+-- unconditionally.
 
-def nat_mod : ℤ → ℕ → ℕ
-| (m : ℕ) n := m % n
-| -[1+ m] n := n - succ (m % n)
+-- E-rounding: This pair satisfies 0 ≤ mod x y < nat_abs y for y ≠ 0
+protected def div : ℤ → ℤ → ℤ
+| (m : ℕ) (n : ℕ) := of_nat (m / n)
+| (m : ℕ) -[1+ n] := -of_nat (m / succ n)
+| -[1+ m] (n : ℕ) := -[1+ m / n]
+| -[1+ m] -[1+ n] := of_nat (succ (m / succ n))
 
 protected def mod : ℤ → ℤ → ℤ
-| m (n : ℕ) := nat_mod m n
-| m -[1+ n] := nat_mod (-m) (succ n)
+| (m : ℕ) n := (m % nat_abs n : ℕ)
+| -[1+ m] n := sub_nat_nat (nat_abs n) (succ (m % nat_abs n))
 
+-- F-rounding: This pair satisfies fdiv x y = floor (x / y)
+def fdiv : ℤ → ℤ → ℤ
+| 0       _       := 0
+| (m : ℕ) (n : ℕ) := of_nat (m / n)
+| (m+1:ℕ) -[1+ n] := -[1+ m / succ n]
+| -[1+ m] 0       := 0
+| -[1+ m] (n+1:ℕ) := -[1+ m / succ n]
+| -[1+ m] -[1+ n] := of_nat (succ m / succ n)
+
+def fmod : ℤ → ℤ → ℤ
+| 0       _       := 0
+| (m : ℕ) (n : ℕ) := of_nat (m % n)
+| (m+1:ℕ) -[1+ n] := sub_nat_nat (m % succ n) n
+| -[1+ m] (n : ℕ) := sub_nat_nat n (succ (m % n))
+| -[1+ m] -[1+ n] := -of_nat (succ m % succ n)
+
+-- T-rounding: This pair satisfies quot x y = round_to_zero (x / y)
 def quot : ℤ → ℤ → ℤ
 | (of_nat m) (of_nat n) := of_nat (m / n)
 | (of_nat m) -[1+ n]    := -of_nat (m / succ n)
@@ -417,10 +436,7 @@ by rw -int.sub_nat_nat_eq_coe; exact sub_nat_nat_elim m n
   (λi n, by rw [nat.add_sub_cancel_left]; refl)
   (λi n, by rw [add_assoc, nat.sub_eq_zero_of_le (nat.le_add_right _ _)]; refl)
 
-#eval do m ← list.range 5,
-         n ← list.range 5,
-         let x : ℤ := m - 2,
-         let y : ℤ := n - 2,
-         return (int.div x y, int.div' x y)
+-- Since mod x y is always nonnegative when y ≠ 0, we can make a nat version of it
+def nat_mod (m n : ℤ) : ℕ := (m % n).to_nat
 
 end int
