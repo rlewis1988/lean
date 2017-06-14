@@ -36,14 +36,14 @@ namespace int
 
   def land : ℤ → ℤ → ℤ
   | (m : ℕ) (n : ℕ) := nat.land m n
-  | (m : ℕ) -[1+ n] := -[1+ nat.ldiff m n]
-  | -[1+ m] (n : ℕ) := -[1+ nat.ldiff n m]
+  | (m : ℕ) -[1+ n] := nat.ldiff m n
+  | -[1+ m] (n : ℕ) := nat.ldiff n m
   | -[1+ m] -[1+ n] := -[1+ nat.lor m n]
 
   def ldiff : ℤ → ℤ → ℤ
   | (m : ℕ) (n : ℕ) := nat.ldiff m n
-  | (m : ℕ) -[1+ n] := -[1+ nat.lor m n]
-  | -[1+ m] (n : ℕ) := nat.land m n
+  | (m : ℕ) -[1+ n] := nat.land m n
+  | -[1+ m] (n : ℕ) := -[1+ nat.lor m n]
   | -[1+ m] -[1+ n] := nat.ldiff n m
 
   def lxor : ℤ → ℤ → ℤ
@@ -59,5 +59,30 @@ namespace int
   | -[1+ m] -[1+ n] := -[1+ nat.shiftr m (nat.succ n)]
 
   def shiftr (m n : ℤ) : ℤ := shiftl m (-n)
+
+  lemma ldiff_swap (m n) : nat.bitwise (λ a b, a && bnot b) m n
+    = nat.bitwise (λ a b, b && bnot a) n m :=
+  congr_fun (congr_fun (@nat.bitwise_swap (λ a b, b && bnot a) rfl) m) n
+
+  private meta def bitwise_tac : tactic unit := `[
+    apply funext, intro m,
+    apply funext, intro n,
+    cases m with m m; cases n with n n; try {refl},
+    all_goals {
+      apply congr_arg of_nat <|> apply congr_arg neg_succ_of_nat,
+      dsimp [nat.land, nat.ldiff, nat.lor],
+      try {rw ldiff_swap n m},
+      apply congr_arg (λ f, nat.bitwise f m n),
+      apply funext, intro a,
+      apply funext, intro b,
+      cases a; cases b; refl
+    },
+    all_goals {unfold nat.land nat.ldiff nat.lor}
+  ]
+
+  theorem bitwise_or   : bitwise bor                  = lor   := by bitwise_tac
+  theorem bitwise_and  : bitwise band                 = land  := by bitwise_tac
+  theorem bitwise_diff : bitwise (λ a b, a && bnot b) = ldiff := by bitwise_tac
+  theorem bitwise_xor  : bitwise bxor                 = lxor  := by bitwise_tac
 
 end int
