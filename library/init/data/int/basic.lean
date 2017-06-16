@@ -176,9 +176,9 @@ lemma eq_zero_of_nat_abs_eq_zero : Π {a : ℤ}, nat_abs a = 0 → a = 0
 | (of_nat m) H := congr_arg of_nat H
 | -[1+ m']   H := absurd H (succ_ne_zero _)
 
-lemma nat_abs_zero : nat_abs (0 : int) = (0 : nat) := rfl
+@[simp] lemma nat_abs_zero : nat_abs (0 : int) = (0 : nat) := rfl
 
-lemma nat_abs_one : nat_abs (1 : int) = (1 : nat) := rfl
+@[simp] lemma nat_abs_one : nat_abs (1 : int) = (1 : nat) := rfl
 
 lemma nat_abs_mul_self : Π {a : ℤ}, ↑(nat_abs a * nat_abs a) = a * a
 | (of_nat m) := rfl
@@ -197,6 +197,7 @@ lemma eq_coe_or_neg (a : ℤ) : ∃n : ℕ, a = n ∨ a = -n := ⟨_, nat_abs_eq
 
 -- There are three main conventions for integer division,
 -- referred here as the E, F, T rounding conventions.
+-- (http://www.cs.nyu.edu/pipermail/smt-lib/2008/000259.html)
 -- All three pairs satisfy the identity x % y + (x / y) * y = x
 -- unconditionally.
 

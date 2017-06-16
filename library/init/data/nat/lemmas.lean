@@ -930,6 +930,12 @@ or.elim (lt_or_ge x y)
     (λy0, by rw [y0, mod_zero]; refl)
     (λypos, le_trans (le_of_lt (mod_lt _ ypos)) ylex))
 
+@[simp] theorem mod_mod_eq_mod (a : ℕ) : Π b : ℕ, (a % b) % b = a % b
+| 0 := by simp [mod_zero]
+| (succ b) :=
+  have h : a % (succ b) < (succ b), from mod_lt _ (succ_pos _),
+  mod_eq_of_lt h
+
 @[simp] theorem add_mod_right (x z : ℕ) : (x + z) % z = x % z :=
 by rw [mod_eq_sub_mod (nat.le_add_left _ _), nat.add_sub_cancel]
 
