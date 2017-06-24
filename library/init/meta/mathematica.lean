@@ -24,28 +24,6 @@ meta instance : has_to_format float :=
 meta instance : has_reflect float | ⟨s, m, e⟩ :=
 ((`(λ s' m' e', float.mk s' m' e').subst (nat.reflect s)).subst (nat.reflect m)).subst (nat.reflect e)
 
---`({float. sign := %%(reflect s), mantisa := %%(reflect m), exponent := %%(reflect e)})
---`(float.mk %%(nat.reflect s) %%(nat.reflect m) %%(nat.reflect e))
---⟨λ fl, `(float.mk %%(quote fl.sign) %%(quote fl.mantisa) %%(quote fl.exponent))⟩
-
--- signed_num is the type of integer binary numerals
-/-inductive signed_num : Type 
-| pos : num → signed_num
-| neg_succ : num → signed_num
-
-def int_of_signed_num : signed_num → int
-| (signed_num.pos k) := int.of_nat k
-| (signed_num.neg_succ k) := int.neg_succ_of_nat (nat.of_num k)
-
--- this has the expected behavior only if i is under the max size of unsigned
-def unsigned_of_signed_num (i : int) : unsigned := 
-int.rec_on i (λ k, unsigned.of_nat (nat.of_num k)) (λ k, unsigned.of_nat (nat.of_num k))
-
-def nat_of_signed_num (i : signed_num) : nat := 
-signed_num.rec_on i (λ k, nat.of_num k) (λ k, nat.of_num k)
--/
-
-
 
 -- this has the expected behavior only if i is under the max size of unsigned
 def unsigned_of_int (i : int) : unsigned := 
@@ -147,20 +125,6 @@ e^.replace (λ ex _, map^.find ex)
 -/
 end mathematica
 
-/-meta def pexpr_of_int : int → pexpr
-| pos_num.one := `(one)
-| (pos_num.bit1 n) := `(bit1 %%(pexpr_of_pos_num n))
-| (pos_num.bit0 n) := `(bit0 %%(pexpr_of_pos_num n))
-
-meta def pexpr_of_num : num → pexpr
-| num.zero := `(zero)
-| (num.pos k) := pexpr_of_pos_num k
-
-
-meta def pexpr_of_signed_num : signed_num → pexpr
-| (signed_num.pos k) := pexpr_of_num k
-| (signed_num.neg_succ k) := `(-(%%(pexpr_of_num (k+1))))-/
-
 meta def pexpr_of_nat : ℕ → pexpr
 | 0 := ```(0)
 | 1 := ```(1)
@@ -221,25 +185,6 @@ meta def mmexpr_to_format : mmexpr → format
 
 meta instance : has_to_format mmexpr := ⟨mmexpr_to_format⟩
 
-/-
-  The following are useful for creating pexprs.
--/
-/-private meta def mk_local_const (n : name) : pexpr :=
-let t := pexpr.mk_placeholder in
-(local_const n n binder_info.default t)
-
-private meta def mk_constant (n : name) : pexpr :=
-pexpr.of_raw_expr (const n [])
-
-private meta def mk_lambda (x : pexpr) (b : pexpr) : pexpr :=
-pexpr.of_raw_expr (lambdas [pexpr.to_raw_expr x] (pexpr.to_raw_expr b))
-
-private meta def mk_app_core : pexpr → list pexpr → pexpr
-| fn []      := fn
-| fn (x::xs) := pexpr.of_raw_expr (app (pexpr.to_raw_expr (mk_app_core fn xs)) (pexpr.to_raw_expr x))
-
-private meta def pexpr_mk_app (fn : pexpr) (args : list pexpr) : pexpr :=
-mk_app_core fn args^.reverse-/
 
 private meta def pexpr_mk_app : pexpr → list pexpr → pexpr
 | fn [] := fn
@@ -591,56 +536,12 @@ private meta def sym_to_lcp : mmexpr → tactic (string × expr)
 | (sym s) := return $ (s, mk_local_const_placeholder s)
 | _ := failed
 
-/-
-meta def pexpr.lift_vars : pexpr → pexpr
-| (var n) := var (n+1)
-| (mvar n e) := mvar n (pexpr.lift_vars e)
-| (local_const nm ppnm bi tp) := local_const nm ppnm bi (pexpr.lift_vars tp)
-| (app f a) := app (pexpr.lift_vars f) (pexpr.lift_vars a)
-| (lam nm bi tp bd) := lam nm bi (pexpr.lift_vars tp) (pexpr.lift_vars bd)
-| (pi nm bi tp bd) := pi nm bi (pexpr.lift_vars tp) (pexpr.lift_vars bd)
-| (elet nm tp df bd) := elet nm (pexpr.lift_vars tp) (pexpr.lift_vars df) (pexpr.lift_vars bd)
-| (macro md l) := macro md (l.map pexpr.lift_vars)
-| p := p
-
-meta def pexpr.replace (old new : pexpr) : pexpr → pexpr
-| (mvar n e) := mvar n (pexpr.lift_vars e)
-| (local_const nm ppnm bi tp) := local_const nm ppnm bi (pexpr.lift_vars tp)
-| (app f a) := app (pexpr.lift_vars f) (pexpr.lift_vars a)
-| (lam nm bi tp bd) := lam nm bi (pexpr.lift_vars tp) (pexpr.lift_vars bd)
-| (pi nm bi tp bd) := pi nm bi (pexpr.lift_vars tp) (pexpr.lift_vars bd)
-| (elet nm tp df bd) := elet nm (pexpr.lift_vars tp) (pexpr.lift_vars df) (pexpr.lift_vars bd)
-| (macro md l) := macro md (l.map pexpr.lift_vars)
-| p := if p = old then new else p
--/
-
 meta def mk_lambdas (l : list expr) (b : pexpr) : pexpr :=
 pexpr.of_raw_expr (lambdas l (pexpr.to_raw_expr b))
 
 meta def mk_lambda' (x : expr) (b : pexpr) : pexpr :=
 pexpr.of_raw_expr (lambdas [x] (pexpr.to_raw_expr b))
 
-
-/-
-No longer needed, now that nested inductive bug is fixed
-@[app_to_pexpr_keyed]
-meta def function_to_pexpr : app_trans_pexpr_keyed_rule :=
-⟨"Function",
-λ env args, match args with
-| [v1, bd] :=
-  match v1 with
-  | sym x := do
-    v ← return $ mk_local_const_placeholder x, 
-    bd' ← pexpr_of_mmexpr (env^.insert x v) bd,
-    return $ mk_lambda' v bd' 
-  | app (sym "List") l := do
-    vs ← monad.for l sym_to_lcp,
-    bd' ← pexpr_of_mmexpr (env^.insert_list vs) bd,
-    return $ mk_lambdas (list.map prod.snd vs) bd'
-  | _ := failed
-  end
-| _ := failed
-end⟩-/
 
 @[app_to_pexpr_keyed]
 meta def function_to_pexpr : app_trans_pexpr_keyed_rule :=
