@@ -75,7 +75,7 @@ namespace lean {
     while (MLNextPacket(mlp) != RETURNPKT) MLNewPacket(mlp);
   }
 
-  expr pos_num_of_int(int n) {
+  /*expr pos_num_of_int(int n) {
     if (n == 1)   return mk_constant(name("pos_num", "one"));
     if (n%2 == 0) return mk_app(mk_constant(name("pos_num", "bit0")), pos_num_of_int(n/2));
     else          return mk_app(mk_constant(name("pos_num", "bit1")), pos_num_of_int(n/2));
@@ -85,19 +85,19 @@ namespace lean {
     if (n == 0) return mk_constant(name("num", "zero"));
     else        return mk_app(mk_constant(name("num", "pos")), pos_num_of_int(n));
   }
-
-  expr signed_num_of_int(int n) {
-    if (n < 0) return mk_app(mk_constant(name("signed_num", "neg_succ")), num_of_int(-(n+1)));
-    else       return mk_app(mk_constant(name("signed_num", "pos")), num_of_int(n));
+  */
+  expr to_int_expr(int n) {
+    if (n < 0) return mk_app(mk_constant(name("int", "neg_succ_of_nat")), to_nat_expr(mpz(n+1)));
+    else       return mk_app(mk_constant(name("int", "of_nat")), to_nat_expr(mpz(n)));
   }
   
   expr lean_string_of_string(const char * s) {
     expr e = from_string(s);
-    return mk_app(mk_constant(name("mmexpr", "str")), e);
+    return mk_app(mk_constant(name("mmexpr", "mstr")), e);
   }
 
   expr lean_int_of_int(int s) {
-    expr e = signed_num_of_int(s);
+    expr e = to_int_expr(s); //signed_num_of_int(s);
     return mk_app(mk_constant(name("mmexpr", "mint")), e);
   }
 

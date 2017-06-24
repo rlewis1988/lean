@@ -18,27 +18,39 @@ structure float :=
 (exponent : nat)
 
 meta instance : has_to_format float :=
-⟨λ f, to_fmt "(" ++ to_fmt f^.sign ++ to_fmt ", " ++ 
-      to_fmt f^.mantisa ++ ", " ++ to_fmt f^.exponent ++ to_fmt ")"⟩
+⟨λ f, to_fmt "(" ++ to_fmt f.sign ++ to_fmt ", " ++ 
+      to_fmt f.mantisa ++ ", " ++ to_fmt f.exponent ++ to_fmt ")"⟩
 
-meta instance : has_quote float := 
-⟨λ fl, `(float.mk %%(quote fl^.sign) %%(quote fl^.mantisa) %%(quote fl^.exponent))⟩
+meta instance : has_reflect float | ⟨s, m, e⟩ :=
+((`(λ s' m' e', float.mk s' m' e').subst (nat.reflect s)).subst (nat.reflect m)).subst (nat.reflect e)
+
+--`({float. sign := %%(reflect s), mantisa := %%(reflect m), exponent := %%(reflect e)})
+--`(float.mk %%(nat.reflect s) %%(nat.reflect m) %%(nat.reflect e))
+--⟨λ fl, `(float.mk %%(quote fl.sign) %%(quote fl.mantisa) %%(quote fl.exponent))⟩
 
 -- signed_num is the type of integer binary numerals
-inductive signed_num : Type 
+/-inductive signed_num : Type 
 | pos : num → signed_num
 | neg_succ : num → signed_num
 
 def int_of_signed_num : signed_num → int
-| (signed_num.pos k) := int.of_nat (nat.of_num k)
+| (signed_num.pos k) := int.of_nat k
 | (signed_num.neg_succ k) := int.neg_succ_of_nat (nat.of_num k)
 
 -- this has the expected behavior only if i is under the max size of unsigned
-def unsigned_of_signed_num (i : signed_num) : unsigned := 
-signed_num.rec_on i (λ k, unsigned.of_nat (nat.of_num k)) (λ k, unsigned.of_nat (nat.of_num k))
+def unsigned_of_signed_num (i : int) : unsigned := 
+int.rec_on i (λ k, unsigned.of_nat (nat.of_num k)) (λ k, unsigned.of_nat (nat.of_num k))
 
 def nat_of_signed_num (i : signed_num) : nat := 
 signed_num.rec_on i (λ k, nat.of_num k) (λ k, nat.of_num k)
+-/
+
+
+
+-- this has the expected behavior only if i is under the max size of unsigned
+def unsigned_of_int (i : int) : unsigned := 
+int.rec_on i (λ k, unsigned.of_nat k) (λ k, unsigned.of_nat k)
+
 
 meta def expand_let : expr → expr
 | (elet nm tp val bod) := expr.replace bod (λ e n, match e with |var n := some val | _ := none end)
@@ -97,8 +109,7 @@ meta def form_of_expr : expr → string
                                      form_of_binder_info bi ++ ", " ++ form_of_expr tp ++
                                      ", " ++ form_of_expr bod ++ "]"
 | (elet nm tp val bod)        := form_of_expr $ expand_let $ elet nm tp val bod
-| (macro mdf n mfn)           := "LeanMacro"
-
+| (macro mdf mlst)           := "LeanMacro"
 
 /-
 These functions are difficult to implement without a monad map over expr. 
@@ -136,7 +147,7 @@ e^.replace (λ ex _, map^.find ex)
 -/
 end mathematica
 
-meta def pexpr_of_pos_num : pos_num → pexpr
+/-meta def pexpr_of_int : int → pexpr
 | pos_num.one := `(one)
 | (pos_num.bit1 n) := `(bit1 %%(pexpr_of_pos_num n))
 | (pos_num.bit0 n) := `(bit0 %%(pexpr_of_pos_num n))
@@ -148,18 +159,26 @@ meta def pexpr_of_num : num → pexpr
 
 meta def pexpr_of_signed_num : signed_num → pexpr
 | (signed_num.pos k) := pexpr_of_num k
-| (signed_num.neg_succ k) := `(-(%%(pexpr_of_num (k+1))))
+| (signed_num.neg_succ k) := `(-(%%(pexpr_of_num (k+1))))-/
+
+meta def pexpr_of_nat : ℕ → pexpr
+| 0 := ```(0)
+| 1 := ```(1)
+| k := if k%2=0 then ```(bit0 %%(pexpr_of_nat (k/2))) else ```(bit1 %%(pexpr_of_nat (k/2)))
+
+meta def pexpr_of_int : int → pexpr
+| (int.of_nat n) := pexpr_of_nat n
+| (int.neg_succ_of_nat n) := ```(-%%(pexpr_of_nat (n+1)))
 
 /--
 The type mmexpr reflects Mathematica expression syntax.
 -/
 inductive mmexpr : Type
 | sym   : string → mmexpr
-| str   : string → mmexpr
-| mint  : signed_num → mmexpr 
+| mstr  : string → mmexpr
+| mint  : int → mmexpr 
 | app   : mmexpr → list mmexpr → mmexpr
 | mreal : float → mmexpr 
-
 
 namespace tactic
 namespace mathematica
@@ -194,8 +213,8 @@ meta def mmexpr_list_to_format (f : mmexpr → format) : list mmexpr → format
 
 meta def mmexpr_to_format : mmexpr → format
 | (sym s)     := to_fmt s
-| (str s)     := to_fmt "\"" ++ to_fmt s ++ "\""
-| (mint i)    := to_fmt (int_of_signed_num i)
+| (mstr s)     := to_fmt "\"" ++ to_fmt s ++ "\""
+| (mint i)    := to_fmt i
 | (app e1 ls) := mmexpr_to_format e1 ++ to_fmt "[" ++ mmexpr_list_to_format mmexpr_to_format ls ++ to_fmt "]"
 | (mreal r)   := to_fmt r 
 
@@ -205,9 +224,9 @@ meta instance : has_to_format mmexpr := ⟨mmexpr_to_format⟩
 /-
   The following are useful for creating pexprs.
 -/
-private meta def mk_local_const (n : name) : pexpr :=
+/-private meta def mk_local_const (n : name) : pexpr :=
 let t := pexpr.mk_placeholder in
-pexpr.of_raw_expr (local_const n n binder_info.default (pexpr.to_raw_expr t))
+(local_const n n binder_info.default t)
 
 private meta def mk_constant (n : name) : pexpr :=
 pexpr.of_raw_expr (const n [])
@@ -220,7 +239,11 @@ private meta def mk_app_core : pexpr → list pexpr → pexpr
 | fn (x::xs) := pexpr.of_raw_expr (app (pexpr.to_raw_expr (mk_app_core fn xs)) (pexpr.to_raw_expr x))
 
 private meta def pexpr_mk_app (fn : pexpr) (args : list pexpr) : pexpr :=
-mk_app_core fn args^.reverse
+mk_app_core fn args^.reverse-/
+
+private meta def pexpr_mk_app : pexpr → list pexpr → pexpr
+| fn [] := fn
+| fn (h::t) := pexpr_mk_app (app fn h) t
 
 section translation
 open rb_lmap
@@ -265,26 +288,26 @@ private meta def mk_app_trans_expr_unkeyed_db (l : list name) :
 monad.mapm (λ n, mk_const n >>= eval_expr app_trans_expr_unkeyed_rule) l
 
 private meta def sym_to_pexpr_rule : caching_user_attribute (rb_lmap string pexpr) :=
-⟨`sym_to_pexpr, "rule for translating a mmexpr.sym to a pexpr", mk_sym_trans_pexpr_db, []⟩ 
+⟨⟨`sym_to_pexpr, "rule for translating a mmexpr.sym to a pexpr"⟩, mk_sym_trans_pexpr_db, []⟩ 
 
 private meta def sym_to_expr_rule : caching_user_attribute (rb_lmap string expr) :=
-⟨`sym_to_expr, "rule for translating a mmexpr.sym to a expr", mk_sym_trans_expr_db, []⟩ 
+⟨⟨`sym_to_expr, "rule for translating a mmexpr.sym to a expr"⟩, mk_sym_trans_expr_db, []⟩ 
 
 private meta def app_to_pexpr_keyed_rule : 
 caching_user_attribute (rb_lmap string (trans_env → list mmexpr → tactic pexpr)) :=
-⟨`app_to_pexpr_keyed, "rule for translating a mmexpr.app to a pexpr", mk_app_trans_pexpr_keyed_db, []⟩ 
+⟨⟨`app_to_pexpr_keyed, "rule for translating a mmexpr.app to a pexpr"⟩, mk_app_trans_pexpr_keyed_db, []⟩ 
 
 private meta def app_to_expr_keyed_rule : 
 caching_user_attribute (rb_lmap string (trans_env → list mmexpr → tactic expr)) :=
-⟨`app_to_expr_keyed, "rule for translating a mmexpr.app to a expr", mk_app_trans_expr_keyed_db, []⟩ 
+⟨⟨`app_to_expr_keyed, "rule for translating a mmexpr.app to a expr"⟩, mk_app_trans_expr_keyed_db, []⟩ 
 
 private meta def app_to_pexpr_unkeyed_rule : 
 caching_user_attribute (list (trans_env → mmexpr → list mmexpr → tactic pexpr)) :=
-⟨`app_to_pexpr_unkeyed, "rule for translating a mmexpr.app to a pexpr", mk_app_trans_pexpr_unkeyed_db, []⟩ 
+⟨⟨`app_to_pexpr_unkeyed, "rule for translating a mmexpr.app to a pexpr"⟩, mk_app_trans_pexpr_unkeyed_db, []⟩ 
 
 private meta def app_to_expr_unkeyed_rule : 
 caching_user_attribute (list (trans_env → mmexpr → list mmexpr → tactic expr)) :=
-⟨`app_to_expr_unkeyed, "rule for translating a mmexpr.app to a expr", mk_app_trans_expr_unkeyed_db, []⟩ 
+⟨⟨`app_to_expr_unkeyed, "rule for translating a mmexpr.app to a expr"⟩, mk_app_trans_expr_unkeyed_db, []⟩ 
 
 run_cmd attribute.register ``sym_to_pexpr_rule
 run_cmd attribute.register ``sym_to_expr_rule
@@ -293,11 +316,10 @@ run_cmd attribute.register ``app_to_expr_keyed_rule
 run_cmd attribute.register ``app_to_pexpr_unkeyed_rule
 run_cmd attribute.register ``app_to_expr_unkeyed_rule
 
-
 private meta def expr_of_mmexpr_app_keyed (env : trans_env) : mmexpr → list mmexpr → tactic expr
 | (sym hd) args :=
   do expr_db ← caching_user_attribute.get_cache app_to_expr_keyed_rule,
-     tactic.first $ (find expr_db hd)^.for $ λ f, f env args
+     tactic.first $ (find expr_db hd).for $ λ f, f env args
 | _ _ := failed
 
 private meta def expr_of_mmexpr_app_unkeyed (env : trans_env) (hd : mmexpr) (args : list mmexpr) : tactic expr :=
@@ -319,7 +341,7 @@ expr_of_mmexpr_app_decomp env expr_of_mmexpr m l
 private meta def pexpr_of_mmexpr_app_keyed (env : trans_env) : mmexpr → list mmexpr → tactic pexpr
 | (sym hd) args := 
   do expr_db ← caching_user_attribute.get_cache app_to_pexpr_keyed_rule,
-     tactic.first $ (find expr_db hd)^.for $ λ f, f env args
+     tactic.first $ (find expr_db hd).for $ λ f, f env args
 | _ _ := failed
 
 
@@ -356,8 +378,8 @@ meta def expr_of_mmexpr : trans_env → mmexpr → tactic expr
      | (h :: t) := return h
      | []       := fail ("Couldn't find translation for sym \"" ++ s ++ "\"")
      end
-| env (str s)       := to_expr (_root_.quote s)
-| env (mreal r)     := to_expr (_root_.quote r)
+| env (mstr s)      := return (string.reflect s)--to_expr (_root_.quote s)
+| env (mreal r)     := return (reflect r)
 | env (app hd args) := expr_of_mmexpr_app env expr_of_mmexpr hd args 
 | env (mint i)      := failed
 
@@ -369,9 +391,9 @@ private meta def pexpr_of_mmexpr_aux (env : trans_env)
      | (h :: t) := return h
      | []       := fail ("Couldn't find translation for sym \"" ++ s ++ "\"")
      end
-| (mint i ) := return $ pexpr_of_signed_num i
+| (mint i ) := return $ pexpr_of_int i
 | (app hd args) := pexpr_of_mmexpr_app env pexpr_of_mmexpr hd args 
-| (str s)   := fail "unreachable, str case shouldn't reach pexpr_of_mmexpr_aux"
+| (mstr s)   := fail "unreachable, str case shouldn't reach pexpr_of_mmexpr_aux"
 | (mreal r) := fail "unreachable, real case shouldn't reach pexpr_of_mmexpr_aux"
 
 /--
@@ -379,7 +401,7 @@ pexpr_of_mmexpr env m will attempt to translate m to a pexpr, using translation 
 the attribute manager. env maps symbols (representing bound variables) to placeholder exprs.
 -/
 meta def pexpr_of_mmexpr : trans_env → mmexpr → tactic pexpr := 
-λ env m, (do e ← expr_of_mmexpr env m, return `(%%e)) <|>
+λ env m, (do e ← expr_of_mmexpr env m, return ```(%%e)) <|>
          (pexpr_of_mmexpr_aux env pexpr_of_mmexpr m)
 
 end translation
@@ -397,8 +419,8 @@ meta def level_of_mmexpr : mmexpr → tactic level
   do m1' ← level_of_mmexpr m1, 
      m2' ← level_of_mmexpr m2, 
      return $ level.imax m1' m2'
-| (app (sym "LeanLevelParam") [str s]) := return $ level.param s
-| (app (sym "LeanLevelMeta") [str s])  := return $ level.mvar s
+| (app (sym "LeanLevelParam") [mstr s]) := return $ level.param s
+| (app (sym "LeanLevelMeta") [mstr s])  := return $ level.mvar s
 | _ := failed
 
 meta def level_list_of_mmexpr : mmexpr → tactic (list level) 
@@ -411,10 +433,10 @@ meta def level_list_of_mmexpr : mmexpr → tactic (list level)
 
 meta def name_of_mmexpr : mmexpr → tactic name 
 | (sym "LeanNameAnonymous")                 := return $ name.anonymous
-| (app (sym "LeanNameMkString") [str s, m]) := 
+| (app (sym "LeanNameMkString") [mstr s, m]) := 
   do n ← name_of_mmexpr m, return $ name.mk_string s n
 | (app (sym "LeanNameMkNum") [mint i, m])   := 
-  do n ← name_of_mmexpr m, return $ name.mk_numeral (unsigned_of_signed_num i) n
+  do n ← name_of_mmexpr m, return $ name.mk_numeral (unsigned_of_int i) n
 | _ := failed
 
 meta def binder_info_of_mmexpr : mmexpr → tactic binder_info 
@@ -422,7 +444,7 @@ meta def binder_info_of_mmexpr : mmexpr → tactic binder_info
 | (sym "BinderInfoImplicit")       := return $ binder_info.implicit 
 | (sym "BinderInfoStrictImplicit") := return $ binder_info.strict_implicit
 | (sym "BinderInfoInstImplicit")   := return $ binder_info.inst_implicit
-| (sym "BinderInfoOther")          := return $ binder_info.other
+| (sym "BinderInfoOther")          := return $ binder_info.aux_decl
 | _ := failed
 end unreflect
 
@@ -432,7 +454,7 @@ section transl_expr_instances
 meta def mmexpr_var_to_expr : app_trans_expr_keyed_rule :=
 ⟨"LeanVar", 
 λ _ args, match args with
-| [mint i] := return $ var (nat_of_signed_num i)
+| [mint i] := return $ var (i.nat_abs)
 | _        := failed
 end⟩ 
 
@@ -509,7 +531,7 @@ end⟩
 
 meta def pexpr_fold_op_aux (op : pexpr) : pexpr → list pexpr → pexpr
 | e [] := e
-| e (h::t) := pexpr_fold_op_aux `(%%op %%e %%h) t
+| e (h::t) := pexpr_fold_op_aux ```(%%op %%e %%h) t
 
 meta def pexpr_fold_op (dflt op : pexpr) : list pexpr → pexpr
 | [] := dflt
@@ -521,26 +543,76 @@ meta def pexpr_fold_op (dflt op : pexpr) : list pexpr → pexpr
 @[app_to_pexpr_keyed]
 meta def add_to_pexpr : app_trans_pexpr_keyed_rule :=
 ⟨"Plus", 
-λ env args, do args' ← monad.for args (pexpr_of_mmexpr env), return $ pexpr_fold_op `(0) `(add) args'⟩
+λ env args, do args' ← monad.for args (pexpr_of_mmexpr env), return $ pexpr_fold_op ```(0) ```(has_add.add) args'⟩
 
 @[app_to_pexpr_keyed]
 meta def mul_to_pexpr : app_trans_pexpr_keyed_rule :=
 ⟨"Times", 
-λ env args, do args' ← monad.for args (pexpr_of_mmexpr env), return $ pexpr_fold_op `(1) `(mul) args'⟩
+λ env args, do args' ← monad.for args (pexpr_of_mmexpr env), return $ pexpr_fold_op ```(1) ```(has_mul.mul) args'⟩
 
 @[app_to_pexpr_keyed]
 meta def list_to_pexpr : app_trans_pexpr_keyed_rule := 
 ⟨"List", λ env args, 
          do args' ← monad.for args (pexpr_of_mmexpr env), 
-            return $ list.foldr (λ h t, `(%%h :: %%t)) `([]) args'⟩
+            return $ list.foldr (λ h t, ```(%%h :: %%t)) ```([]) args'⟩
+
+
+meta def pexpr.to_raw_expr : pexpr → expr
+| (var n)                     := var n
+| (sort l)                    := sort l
+| (const nm ls)               := const nm ls
+| (mvar n e)                  := mvar n (pexpr.to_raw_expr e)
+| (local_const nm ppnm bi tp) := local_const nm ppnm bi (pexpr.to_raw_expr tp)
+| (app f a)                   := app (pexpr.to_raw_expr f) (pexpr.to_raw_expr a)
+| (lam nm bi tp bd)           := lam nm bi (pexpr.to_raw_expr tp) (pexpr.to_raw_expr bd)
+| (pi nm bi tp bd)            := pi nm bi (pexpr.to_raw_expr tp) (pexpr.to_raw_expr bd)
+| (elet nm tp df bd)          := elet nm (pexpr.to_raw_expr tp) (pexpr.to_raw_expr df) (pexpr.to_raw_expr bd)
+| (macro md l)                := macro md (l.map pexpr.to_raw_expr)
+
+meta def pexpr.of_raw_expr : expr → pexpr
+| (var n)                     := var n
+| (sort l)                    := sort l
+| (const nm ls)               := const nm ls
+| (mvar n e)                  := mvar n (pexpr.of_raw_expr e)
+| (local_const nm ppnm bi tp) := local_const nm ppnm bi (pexpr.of_raw_expr tp)
+| (app f a)                   := app (pexpr.of_raw_expr f) (pexpr.of_raw_expr a)
+| (lam nm bi tp bd)           := lam nm bi (pexpr.of_raw_expr tp) (pexpr.of_raw_expr bd)
+| (pi nm bi tp bd)            := pi nm bi (pexpr.of_raw_expr tp) (pexpr.of_raw_expr bd)
+| (elet nm tp df bd)          := elet nm (pexpr.of_raw_expr tp) (pexpr.of_raw_expr df) (pexpr.of_raw_expr bd)
+| (macro md l)                := macro md (l.map pexpr.of_raw_expr)
+
 
 meta def mk_local_const_placeholder (n : name) : expr :=
 let t := pexpr.mk_placeholder in
 local_const n n binder_info.default (pexpr.to_raw_expr t)
 
+
 private meta def sym_to_lcp : mmexpr → tactic (string × expr)
 | (sym s) := return $ (s, mk_local_const_placeholder s)
 | _ := failed
+
+/-
+meta def pexpr.lift_vars : pexpr → pexpr
+| (var n) := var (n+1)
+| (mvar n e) := mvar n (pexpr.lift_vars e)
+| (local_const nm ppnm bi tp) := local_const nm ppnm bi (pexpr.lift_vars tp)
+| (app f a) := app (pexpr.lift_vars f) (pexpr.lift_vars a)
+| (lam nm bi tp bd) := lam nm bi (pexpr.lift_vars tp) (pexpr.lift_vars bd)
+| (pi nm bi tp bd) := pi nm bi (pexpr.lift_vars tp) (pexpr.lift_vars bd)
+| (elet nm tp df bd) := elet nm (pexpr.lift_vars tp) (pexpr.lift_vars df) (pexpr.lift_vars bd)
+| (macro md l) := macro md (l.map pexpr.lift_vars)
+| p := p
+
+meta def pexpr.replace (old new : pexpr) : pexpr → pexpr
+| (mvar n e) := mvar n (pexpr.lift_vars e)
+| (local_const nm ppnm bi tp) := local_const nm ppnm bi (pexpr.lift_vars tp)
+| (app f a) := app (pexpr.lift_vars f) (pexpr.lift_vars a)
+| (lam nm bi tp bd) := lam nm bi (pexpr.lift_vars tp) (pexpr.lift_vars bd)
+| (pi nm bi tp bd) := pi nm bi (pexpr.lift_vars tp) (pexpr.lift_vars bd)
+| (elet nm tp df bd) := elet nm (pexpr.lift_vars tp) (pexpr.lift_vars df) (pexpr.lift_vars bd)
+| (macro md l) := macro md (l.map pexpr.lift_vars)
+| p := if p = old then new else p
+-/
 
 meta def mk_lambdas (l : list expr) (b : pexpr) : pexpr :=
 pexpr.of_raw_expr (lambdas l (pexpr.to_raw_expr b))
@@ -576,18 +648,18 @@ meta def function_to_pexpr : app_trans_pexpr_keyed_rule :=
 λ env args, match args with
 | [sym x, bd] := 
   do v ← return $ mk_local_const_placeholder x, 
-     bd' ← pexpr_of_mmexpr (env^.insert x v) bd,
+     bd' ← pexpr_of_mmexpr (env.insert x v) bd,
      return $ mk_lambda' v bd' 
 | [app (sym "List") l, bd] :=
   do vs ← monad.for l sym_to_lcp,
-     bd' ← pexpr_of_mmexpr (env^.insert_list vs) bd,
+     bd' ← pexpr_of_mmexpr (env.insert_list vs) bd,
      return $ mk_lambdas (list.map prod.snd vs) bd'
 | _ := failed
 end⟩
 
 @[sym_to_pexpr]
 meta def rat_to_pexpr : sym_trans_pexpr_rule :=
-⟨"Rational", `(div)⟩ 
+⟨"Rational", ```(has_div.div)⟩ 
 
 
 end transl_expr_instances
@@ -649,14 +721,14 @@ applies cmd to a Mathematica list of these reflections,
 evaluates this in Mathematica, and attempts to translate the result to a pexpr.
 -/
 meta def run_command_on_list (cmd : string → string) (l : list expr) : tactic pexpr :=
-let lvs := "{" ++ (sep_string $ l^.map form_of_expr) ++ "}" in
+let lvs := "{" ++ (sep_string $ l.map form_of_expr) ++ "}" in
 do rval ← execute $ cmd lvs,
    rval' ← eval_expr mmexpr rval,
    pexpr_of_mmexpr trans_env.empty rval'
 
 
 meta def run_command_on_list_using (cmd : string → string) (l : list expr) (path : string) : tactic pexpr :=
-let lvs := "{" ++ (sep_string $ l^.map form_of_expr) ++ "}" in
+let lvs := "{" ++ (sep_string $ l.map form_of_expr) ++ "}" in
 do rval ← execute $ mk_get_cmd path ++ cmd lvs,
    rval' ← eval_expr mmexpr rval,
    pexpr_of_mmexpr trans_env.empty rval'
