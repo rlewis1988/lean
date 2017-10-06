@@ -40,6 +40,10 @@ vm_obj mk_vm_float(float n) {
     return mk_vm_float(to_float(e1) * to_float(e2));
   }
 
+  vm_obj float_div(vm_obj const & e1, vm_obj const & e2) {
+    return mk_vm_float(to_float(e1) / to_float(e2));
+  }
+
     vm_obj float_log(vm_obj const & e1) {
       return mk_vm_float(log(to_float(e1)));
   }
@@ -59,17 +63,33 @@ vm_obj mk_vm_float(float n) {
   vm_obj float_pi() {
     return mk_vm_float(3.14159);
   }
+
+  vm_obj float_random() {
+    return mk_vm_float(static_cast <float> (rand()) / static_cast <float> (RAND_MAX));
+  }
+
+  vm_obj float_decidable_eq(vm_obj const & e1, vm_obj const & e2) {
+    return mk_vm_bool(to_float(e1)==to_float(e2));
+  }
+
+  vm_obj float_pow(vm_obj const & base, vm_obj const & exp) {
+    return mk_vm_float(pow(to_float(base), to_float(exp)));
+  }
   
   void initialize_vm_float() {
   //    DECLARE_VM_BUILTIN(name({"float", "of_int"}), );
     DECLARE_VM_BUILTIN(name({"float", "add"}),             float_add);
     DECLARE_VM_BUILTIN(name({"float", "sub"}),             float_sub);
     DECLARE_VM_BUILTIN(name({"float", "mul"}),             float_mul);
+    DECLARE_VM_BUILTIN(name({"float", "div"}),             float_div);
     DECLARE_VM_BUILTIN(name({"float", "lt"}),             float_lt);
     DECLARE_VM_BUILTIN(name({"float", "log"}),             float_log);
     DECLARE_VM_BUILTIN(name({"float", "to_string"}),             float_to_string);
     DECLARE_VM_BUILTIN(name({"float", "pi"}),             float_pi);
     DECLARE_VM_BUILTIN(name({"float", "float_of_int"}),             float_of_int);
+    DECLARE_VM_BUILTIN(name({"float", "random"}),             float_random);
+    DECLARE_VM_BUILTIN(name({"float", "dec_eq"}),             float_decidable_eq);
+    DECLARE_VM_BUILTIN(name({"float", "pow"}),             float_pow);
   }
 
   void finalize_vm_float() {
